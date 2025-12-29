@@ -1,0 +1,13 @@
+# nix-shell -p ssh-to-age --run 'ssh-keyscan example.com | ssh-to-age'
+# nix-shell -p ssh-to-age --run 'cat /etc/ssh/ssh_host_ed25519_key.pub | ssh-to-age'
+keys:
+  # Users
+  - &jinx age1322uu60fpjzgjktx7uaqmafy5tq99j7d3qkrvhm0un4dqtlmly7s9cn0ft
+creation_rules:
+  - path_regex: mock/.*
+    key_groups:
+      - age:
+        - *jinx
+  - key_groups:
+      - age:
+        - *jinx
