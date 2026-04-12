@@ -209,8 +209,8 @@ export class SopsRunner {
 
             if (stdin) {
                 proc.stdin.write(stdin);
-                proc.stdin.end();
             }
+            proc.stdin.end();
 
             proc.on('close', (code: number | null) => {
                 clearTimeout(timer);
