@@ -1,6 +1,5 @@
 import { spawn } from 'child_process';
 import * as path from 'path';
-import * as fs from 'fs';
 import { SopsError, SopsErrorType } from '../types';
 import { SettingsService } from '../services/settingsService';
 import { logger } from '../services/loggerService';
@@ -63,50 +62,24 @@ export class SopsRunner {
     }
 
     /**
-     * Encrypt content from stdin with filename override for rule matching.
-     * Used for encrypting in-memory content without writing to disk first.
-     *
-     * Note: Uses a temp file approach because SOPS stdin handling is unreliable
-     * across platforms (Windows doesn't support `-` or `/dev/stdin`).
+     * Encrypt content via stdin with --filename-override for rule matching.
+     * Pipes plaintext to SOPS stdin — no temp file needed.
+     * SOPS uses the override path for creation_rules matching and format detection.
      * @param configPath Optional path to .sops.yaml/.sops.yml config file
      */
     async encryptContent(content: string, filePath: string, configPath?: string): Promise<string> {
-        const ext = path.extname(filePath);
-        const dir = path.dirname(filePath);
-        const fullBasename = path.basename(filePath, ext);
-        const inputType = this.getInputType(ext.slice(1));
-        logger.debug(`SopsRunner: Encrypting content for ${filePath} (type=${inputType})`);
+        logger.debug(`SopsRunner: Encrypting content for ${filePath}`);
 
-        // Create a temp file in the same directory so .sops.yaml rules match
-        // Preserve the original filename pattern so SOPS rules work correctly
-        // Insert temp identifier BEFORE the final extension pattern
-        // Example: all.sops.yml -> all.sopsie-temp-123.sops.yml
-        // This ensures patterns like .*\.sops\.(yml|yaml)$ still match
-        const sopsMatch = fullBasename.match(/^(.*)\.sops$/);
-        const tempFileName = sopsMatch
-            ? `${sopsMatch[1]}.sopsie-temp-${Date.now()}.sops${ext}`
-            : `${fullBasename}.sopsie-temp-${Date.now()}${ext}`;
-        const tempFilePath = path.join(dir, tempFileName);
-        logger.debug(`SopsRunner: Using temp file: ${tempFileName}`);
-
-        try {
-            // Write content to temp file
-            fs.writeFileSync(tempFilePath, content, 'utf8');
-
-            // Encrypt the temp file
-            const result = await this.runSops(['--encrypt', tempFilePath], tempFilePath, configPath);
-
-            return result;
-        } finally {
-            // Always clean up temp file
-            try {
-                if (fs.existsSync(tempFilePath)) {
-                    fs.unlinkSync(tempFilePath);
-                }
-            } catch (cleanupError) {
-                logger.debug(`Failed to clean up temp file: ${getErrorMessage(cleanupError)}`);
-            }
+        const args = ['--encrypt', '--filename-override', filePath];
+        if (configPath) {
+            args.unshift('--config', configPath);
         }
+
+        const sopsPath = this.settingsService.getSopsPath();
+        const timeout = this.settingsService.getTimeout();
+        const cwd = this.getWorkingDirectory(filePath);
+
+        return this.runCommand(sopsPath, args, cwd, content, timeout);
     }
 
     /**
@@ -236,8 +209,8 @@ export class SopsRunner {
 
             if (stdin) {
                 proc.stdin.write(stdin);
-                proc.stdin.end();
             }
+            proc.stdin.end();
 
             proc.on('close', (code: number | null) => {
                 clearTimeout(timer);
