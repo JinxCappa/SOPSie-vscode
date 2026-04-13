@@ -281,11 +281,11 @@ export class SopsRunner {
             );
         }
 
-        if (stderr.includes('encrypt')) {
+        if (lowerStderr.includes('encrypt')) {
             return this.createError(SopsErrorType.EncryptionFailed, 'Encryption failed', stderr);
         }
 
-        if (stderr.includes('decrypt')) {
+        if (lowerStderr.includes('decrypt')) {
             return this.createError(SopsErrorType.DecryptionFailed, 'Decryption failed', stderr);
         }
 
