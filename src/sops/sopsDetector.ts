@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as YAML from 'yaml';
 import { logger } from '../services/loggerService';
 import { getErrorMessage } from '../utils/errorUtils';
 
@@ -6,11 +7,6 @@ import { getErrorMessage } from '../utils/errorUtils';
  * Detects if a file is SOPS-encrypted by checking for SOPS metadata
  */
 export class SopsDetector {
-    // Regex to match SOPS metadata fields (mac, lastmodified, version) in YAML/JSON
-    private static readonly SOPS_METADATA_REGEX = /["']?(mac|lastmodified|version)["']?\s*:/;
-    // Regex to match SOPS metadata fields in INI files (uses = instead of :)
-    private static readonly SOPS_INI_METADATA_REGEX = /^(mac|lastmodified|version)\s*=/m;
-
     /**
      * Check if a file is SOPS-encrypted by looking for the sops metadata key.
      * SOPS-encrypted files always contain a "sops:" key with metadata including
@@ -36,20 +32,9 @@ export class SopsDetector {
             return false;
         }
 
-        // Check for SOPS metadata marker in various formats
-        // YAML format: sops:
-        // JSON format: "sops":
-        // The sops key contains mac, version, and key information
-        if (/["']?sops["']?\s*:/m.test(content)) {
-            // Additional check: ensure it has expected SOPS metadata fields
-            // to avoid false positives with files that just have a "sops" key
-            // Using single regex instead of multiple includes() for performance
-            return SopsDetector.SOPS_METADATA_REGEX.test(content);
-        }
-
-        // INI files have sops metadata in a [sops] section
-        if (/^\[sops\]\s*$/m.test(content)) {
-            return SopsDetector.SOPS_INI_METADATA_REGEX.test(content);
+        // Binary format detection (rarely used)
+        if (content.startsWith('SOPS')) {
+            return true;
         }
 
         // ENV files have sops metadata as prefixed keys
@@ -57,12 +42,50 @@ export class SopsDetector {
             return true;
         }
 
-        // Binary format detection (rarely used)
-        if (content.startsWith('SOPS')) {
-            return true;
+        // INI files have sops metadata in a [sops] section with matching
+        // metadata fields inside that section.
+        if (/^\[sops\]\s*$/m.test(content)) {
+            return SopsDetector.hasIniSopsMetadata(content);
         }
 
-        return false;
+        // YAML/JSON: parse and verify a top-level `sops` mapping that
+        // contains the required metadata subkeys. Flat regex matches
+        // produced false positives when a file happened to have both a
+        // `sops` key and an unrelated `version:` field elsewhere.
+        return SopsDetector.hasYamlSopsMetadata(content);
+    }
+
+    private static hasYamlSopsMetadata(content: string): boolean {
+        let parsed: unknown;
+        try {
+            parsed = YAML.parse(content);
+        } catch {
+            return false;
+        }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return false;
+        }
+        const sops = (parsed as Record<string, unknown>).sops;
+        if (!sops || typeof sops !== 'object' || Array.isArray(sops)) {
+            return false;
+        }
+        const meta = sops as Record<string, unknown>;
+        // Require mac, which every SOPS-encrypted file carries, plus
+        // at least one other metadata field.
+        if (typeof meta.mac !== 'string') {
+            return false;
+        }
+        return 'version' in meta || 'lastmodified' in meta;
+    }
+
+    private static hasIniSopsMetadata(content: string): boolean {
+        // Restrict the metadata match to lines after the [sops] header.
+        const headerIdx = content.search(/^\[sops\]\s*$/m);
+        if (headerIdx === -1) {
+            return false;
+        }
+        const section = content.slice(headerIdx);
+        return /^mac\s*=/m.test(section) && /^version\s*=/m.test(section);
     }
 
     /**
