@@ -1,0 +1,412 @@
+src/services/settingsService.ts
+  69098e338da60765 42-44,47-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "dbb643295fe64d27a9ed51fb1fde5b128ef09e65",
+  "prompts": {
+    "69098e338da60765": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b9c8c825-14cd-4e0e-bb3c-dfe5b0e64222",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [
+        {
+          "type": "user",
+          "text": "<command-message>cleanse</command-message>\n<command-name>/cleanse</command-name>",
+          "timestamp": "2026-04-13T00:11:10.797Z"
+        },
+        {
+          "type": "user",
+          "text": "Perform a deep review to identify concrete issues, defects, risks, inconsistencies, or other actionable findings.\n\nSCOPE SELECTION (mandatory first step):\n1. The root monorepo is ALWAYS excluded from review. Never review files tracked directly in the monorepo root — only files inside submodules are in scope.\n2. Enumerate submodules and check each for staged files:\n   ```bash\n   git submodule foreach --quiet 'staged=$(git diff --cached --name-only); if [ -n \"$staged\" ]; then echo \"$sm_path:\"; echo \"$staged\" | sed \"s/^/  /\"; fi'\n   ```\n3. Collect all staged files from submodules only.\n4. If there ARE staged files in any submodule, review only those files and their immediate dependencies (direct imports and direct importers — do not walk transitive dependencies). Stay within the submodule boundary — do not cross between submodules for dependency analysis.\n5. If there are NO staged files in any submodule, review all submodules.\n6. A single `RETRACT.yaml` lives in the monorepo root (the only root file this workflow touches). Findings are keyed by submodule — prefix finding IDs with the submodule name (e.g. `vscode/finding-id`, `jetbrains/finding-id`).\n\nCRITICAL REQUIREMENT:\nBefore presenting findings, process `RETRACT.yaml` in the repository root as the source of truth for invalidated findings.\n- If repository writes are authorized, update `RETRACT.yaml` before showing results.\n- If the user requested a read-only review or write authorization is unclear, do the analysis, identify any invalid candidate findings that should be retracted, and ask for approval before writing.\n- Do not silently mutate the repository.\n\nSTATEFUL REVIEW NOTE:\nThis workflow may modify the repository by updating `RETRACT.yaml`. Treat that as an intentional repo change, not an invisible side effect.\n\nTOOLING:\n- Use ONLY mikefarah `yq` v4 for all YAML reads and writes to `RETRACT.yaml`.\n- No other tool, language, or method may read, write, parse, or modify `RETRACT.yaml`. This includes but is not limited to `python`, `ruby`, `perl`, `jq`, `sed`, `awk`, manual string editing, or the `write`/`edit` tools.\n- The caller has verified `yq` is available before this prompt was delivered.\n- Do not run `cubic`, `cubic review`, or any other external AI review tool. This review is performed entirely by you.\n\nTOKEN-CONSCIOUS RETRACT USAGE:\n- Do not load the full `RETRACT.yaml` unless necessary.\n- Use targeted `yq` queries to retrieve only the minimum fields needed.\n- Start narrow (for example by `id`, file path, or title keywords), then inspect full entries only for plausible matches.\n\nMandatory workflow for EVERY candidate finding:\n\n1. Ensure `RETRACT.yaml` exists.\n   - If missing, create:\n\n```yaml\nretracted_findings: []\n```\n\n2. Check whether the candidate is already retracted.\n   - Query a minimal subset first.\n   - Exact `id` match => duplicate; SKIP it.\n   - File overlap or keyword overlap are only triage signals; they are not enough to skip.\n   - For non-exact matches, inspect the full entry and skip only if it is substantively the same finding: same defect mechanism, same failure mode, and materially the same remediation target.\n\n3. Re-verify the candidate against the codebase.\n   - Perform a second-pass validation with full context.\n   - Confirm it is factual and reproducible.\n\n4. If the finding is INVALID:\n   - If writes are authorized, immediately add it to `RETRACT.yaml` before continuing.\n   - Do not batch updates.\n   - Do not continue to other findings until the write is complete.\n   - Avoid duplicates.\n   - Use `yq` append/update commands.\n   - If writes are not authorized, stop before final output and ask for approval to persist the retraction.\n\n5. If the finding is VALID:\n   - Keep it for final reporting.\n\nENFORCEMENT:\n- `RETRACT.yaml` must be up to date before output, unless write approval is still pending.\n- Do not present verified findings while withholding required `RETRACT.yaml` updates that you are authorized to make.\n- If invalid findings were identified in an authorized write context and you did not update `RETRACT.yaml`, the task is incomplete.\n\n`RETRACT.yaml` structure (lives in monorepo root, organized by submodule):\n\n```yaml\nvscode:\n  - id: vscode/unique_identifier\n    title: short description\n    files: [list of file paths relative to submodule root]\n    original_finding: description of the initial suspected issue\n    invalid_reason: why it was proven invalid\n    timestamp: ISO8601 if available\njetbrains:\n  - id: jetbrains/unique_identifier\n    title: short description\n    files: [list of file paths relative to submodule root]\n    original_finding: description of the initial suspected issue\n    invalid_reason: why it was proven invalid\n    timestamp: ISO8601 if available\n```\n\nWriting rules:\n- Check for duplicates before inserting.\n- Keep structure consistent.\n- Append only after validation failure.\n\n`yq` reference commands (replace `SUBMODULE` with `vscode` or `jetbrains`):\n```bash\n# List all retracted IDs for a submodule (dedup check):\nyq '.SUBMODULE[].id' RETRACT.yaml\n\n# Check if a specific ID exists:\nyq '.SUBMODULE[] | select(.id == \"SUBMODULE/my-finding-id\")' RETRACT.yaml\n\n# Narrow by file path overlap:\nyq '.SUBMODULE[] | select(.files[] == \"src/file.ts\") | [.id, .title] | @tsv' RETRACT.yaml\n\n# Append a new retraction to a submodule section:\nyq -i '.SUBMODULE += [{\"id\": \"SUBMODULE/new-id\", \"title\": \"...\", \"files\": [\"...\"], \"original_finding\": \"...\", \"invalid_reason\": \"...\", \"timestamp\": \"...\"}]' RETRACT.yaml\n\n# VALIDATE after every write (mandatory):\nyq '.SUBMODULE | length' RETRACT.yaml\n# If this fails, your last yq write produced invalid YAML. Do NOT attempt\n# to repair the file with any tool other than yq. Instead, re-run the\n# failed yq append command with corrected input.\n\n# Initialize if missing:\ntest -f RETRACT.yaml || yq -n '{\"vscode\": [], \"jetbrains\": []}' > RETRACT.yaml\n```\n\nOUTPUT RULES:\n- Present only factually verified findings.\n- Do not include speculation or uncertainty.\n- Do not include anything already present in `RETRACT.yaml`.\n- If no valid findings remain, explicitly say so.\n\nSEVERITY SCALE:\n\n| Level | Meaning |\n|-------|---------|\n| `critical` | Data loss, security vulnerability, or crash in normal usage |\n| `high` | Incorrect behavior that affects users but has a workaround |\n| `medium` | Logic error, race condition, or misuse that surfaces under specific conditions |\n| `low` | Code smell, minor inconsistency, or deviation from project conventions |\n\nFINDING GRANULARITY:\n- One finding per unique defect.\n- If the same defect pattern appears in multiple files, group them into a single finding listing all affected locations.\n\nFor each verified finding include:\n- title\n- severity (from the scale above)\n- affected files/components\n- clear evidence from code\n- explanation of why it is valid\n- recommended fix direction (high-level only; do not provide a concrete patch, exact edit, or implementation plan unless the user approves follow-up changes)\n\nFINAL STEP:\nAfter presenting the verified findings, ask for approval before making code changes or providing patch-level suggestions.\n",
+          "timestamp": "2026-04-13T00:11:10.797Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git submodule foreach --quiet 'staged=$(git diff --cached --name-only); if [ -n \"$staged\" ]; then echo \"$sm_path:\"; echo \"$staged\" | sed \"s/^/  /\"; fi'",
+            "description": "Check submodules for staged files"
+          },
+          "timestamp": "2026-04-13T00:11:15.062Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git submodule status && ls RETRACT.yaml 2>&1",
+            "description": "List submodules and check RETRACT.yaml"
+          },
+          "timestamp": "2026-04-13T00:11:16.112Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "ls vscode jetbrains 2>&1 | head -60",
+            "description": "List submodule contents"
+          },
+          "timestamp": "2026-04-13T00:11:20.784Z"
+        },
+        {
+          "type": "assistant",
+          "text": "No staged files in submodules — scope is both `vscode/` and `jetbrains/`. Let me initialize `RETRACT.yaml` and dispatch parallel deep reviews.",
+          "timestamp": "2026-04-13T00:11:24.811Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "yq -n '{\"vscode\": [], \"jetbrains\": []}' > RETRACT.yaml && yq '.' RETRACT.yaml",
+            "description": "Initialize RETRACT.yaml"
+          },
+          "timestamp": "2026-04-13T00:11:26.054Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Agent",
+          "input": {
+            "description": "Deep cleanse review: vscode submodule",
+            "prompt": "Perform a thorough code review (\"cleanse\") of the `/Users/jinx/MEGA/SOPSie-dev/vscode` submodule. Identify concrete defects, risks, and inconsistencies. This is a VS Code extension (TypeScript).\n\nLook for:\n- Bugs, logic errors, race conditions\n- Security issues (command injection, unsafe file/shell ops, secret handling — this is a SOPS-related tool)\n- Resource leaks (unclosed disposables, file handles, listeners)\n- Incorrect error handling / swallowed errors\n- API misuse (VS Code API, Node APIs)\n- Inconsistencies between declared package.json commands/contributes and actual implementations\n- Dead code or obviously broken paths\n\nFor EACH finding, report:\n- Suggested ID (e.g. `vscode/<short-slug>`)\n- Title\n- Severity: critical | high | medium | low\n- Affected files (paths relative to vscode/)\n- Evidence: file:line references and short code quote\n- Why it is a real defect (not speculation)\n- High-level fix direction (no patches)\n\nBe rigorous — only report things you verified by reading actual code. Skip style nits. Return findings as a numbered list. Under ~1500 words total.",
+            "subagent_type": "Explore"
+          },
+          "timestamp": "2026-04-13T00:11:34.474Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Agent",
+          "input": {
+            "description": "Deep cleanse review: jetbrains submodule",
+            "prompt": "Perform a thorough code review (\"cleanse\") of the `/Users/jinx/MEGA/SOPSie-dev/jetbrains` submodule. Identify concrete defects, risks, and inconsistencies. This is a JetBrains IDE plugin (Kotlin, Gradle).\n\nLook for:\n- Bugs, logic errors, race conditions, threading issues (EDT / read-write locks / coroutine misuse)\n- Security issues (command injection, unsafe file/shell ops, secret handling — this is a SOPS-related tool)\n- Resource leaks (Disposable not parented, unclosed streams, leaked listeners)\n- Incorrect error handling / swallowed exceptions\n- IntelliJ Platform API misuse\n- Inconsistencies between plugin.xml declarations and actual implementations\n- Dead code or obviously broken paths\n\nFor EACH finding, report:\n- Suggested ID (e.g. `jetbrains/<short-slug>`)\n- Title\n- Severity: critical | high | medium | low\n- Affected files (paths relative to jetbrains/)\n- Evidence: file:line references and short code quote\n- Why it is a real defect (not speculation)\n- High-level fix direction (no patches)\n\nBe rigorous — only report things you verified by reading actual code. Skip style nits. Return findings as a numbered list. Under ~1500 words total.",
+            "subagent_type": "Explore"
+          },
+          "timestamp": "2026-04-13T00:11:38.973Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Let me verify key findings before reporting.",
+          "timestamp": "2026-04-13T00:12:59.401Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/vscode/src/sops/sopsRunner.ts",
+            "limit": 70,
+            "offset": 160
+          },
+          "timestamp": "2026-04-13T00:13:00.956Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/vscode/src/handlers/tempFileHandler.ts",
+            "limit": 50,
+            "offset": 110
+          },
+          "timestamp": "2026-04-13T00:13:01.715Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/vscode/src/services/settingsService.ts"
+          },
+          "timestamp": "2026-04-13T00:13:02.180Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/DecryptedEditorHandler.kt",
+            "limit": 40,
+            "offset": 190
+          },
+          "timestamp": "2026-04-13T00:13:03.296Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/listeners/SopsConfigFileListener.kt"
+          },
+          "timestamp": "2026-04-13T00:13:03.884Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/vscode/src/extension.ts",
+            "limit": 40,
+            "offset": 170
+          },
+          "timestamp": "2026-04-13T00:13:14.084Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/execution/SopsRunner.kt",
+            "limit": 50,
+            "offset": 80
+          },
+          "timestamp": "2026-04-13T00:13:14.868Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/ui/SopsStatusBarWidgetFactory.kt"
+          },
+          "timestamp": "2026-04-13T00:13:15.641Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/AutoBehaviorHandler.kt",
+            "limit": 60,
+            "offset": 195
+          },
+          "timestamp": "2026-04-13T00:13:16.779Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/TempFileHandler.kt",
+            "limit": 200,
+            "offset": 40
+          },
+          "timestamp": "2026-04-13T00:13:17.415Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/AutoBehaviorHandler.kt",
+            "limit": 200,
+            "offset": 1
+          },
+          "timestamp": "2026-04-13T00:13:56.118Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "find /Users/jinx/MEGA/SOPSie-dev/jetbrains/src -name \"SopsSaveListener*\" -o -name \"*SaveListener*\"",
+            "description": "find save listener file"
+          },
+          "timestamp": "2026-04-13T00:14:08.873Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/listeners/SopsSaveListener.kt"
+          },
+          "timestamp": "2026-04-13T00:14:11.910Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Verified. Now writing invalid candidates to `RETRACT.yaml` before reporting.",
+          "timestamp": "2026-04-13T00:14:46.250Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "yq -i '.vscode += [{\"id\": \"vscode/unhandled-settingsservice-disposal\", \"title\": \"SettingsService leaks onDidChangeConfiguration listener\", \"files\": [\"src/services/settingsService.ts\"], \"original_finding\": \"onDidChangeConfiguration listener never disposed; SettingsService.dispose() does not remove internal listener.\", \"invalid_reason\": \"Lines 15-21 push the disposable returned by onDidChangeConfiguration into this.disposables, and dispose() at lines 138-140 disposes all of them. Listener is correctly cleaned up.\", \"timestamp\": \"2026-04-12\"}]' RETRACT.yaml && \\\nyq -i '.vscode += [{\"id\": \"vscode/sopsrunner-env-mutation\", \"title\": \"spawn inherits process.env including secrets\", \"files\": [\"src/sops/sopsRunner.ts\"], \"original_finding\": \"Spreading process.env into spawned SOPS process may inadvertently expose secrets.\", \"invalid_reason\": \"SOPS legitimately requires environment variables (AWS_*, GCP creds, HOME, PATH, etc.) to locate KMS keys. Inheriting process.env is the correct and required behavior; scoping it would break decrypt/encrypt.\", \"timestamp\": \"2026-04-12\"}]' RETRACT.yaml && \\\nyq -i '.jetbrains += [{\"id\": \"jetbrains/file-path-injection\", \"title\": \"Unsanitized file paths passed to SOPS CLI\", \"files\": [\"src/main/kotlin/com/sopsie/execution/SopsRunner.kt\"], \"original_finding\": \"filePath passed to --filename-override without validation; could allow directory traversal or unexpected rule matching.\", \"invalid_reason\": \"Paths come from VirtualFile.path for user-owned files the user is editing; there is no untrusted source. GeneralCommandLine uses argv arrays (no shell). The user selecting their own file path is the expected threat model.\", \"timestamp\": \"2026-04-12\"}]' RETRACT.yaml && \\\nyq -i '.jetbrains += [{\"id\": \"jetbrains/listener-not-unsubscribed\", \"title\": \"MessageBusConnection in widget factory not disconnected\", \"files\": [\"src/main/kotlin/com/sopsie/ui/SopsStatusBarWidgetFactory.kt\"], \"original_finding\": \"project.messageBus.connect(widget).subscribe(...) does not store the connection, so it cannot be disconnected.\", \"invalid_reason\": \"connect(parentDisposable) scopes the connection to the widget Disposable. disposeWidget() calls Disposer.dispose(widget), which disposes the connection transitively. This is the documented IntelliJ Platform pattern.\", \"timestamp\": \"2026-04-12\"}]' RETRACT.yaml && \\\nyq -i '.jetbrains += [{\"id\": \"jetbrains/debounce-scheduler-leak\", \"title\": \"ScheduledExecutor in SopsConfigFileListener never shut down\", \"files\": [\"src/main/kotlin/com/sopsie/listeners/SopsConfigFileListener.kt\"], \"original_finding\": \"Scheduler created as class-level field is never shutdown(); accumulates across project open/close.\", \"invalid_reason\": \"SopsConfigFileListener is an application-level BulkFileListener instantiated once for the IDE lifetime, not per project. The scheduler uses daemon threads so it does not block JVM shutdown. Singleton with daemon pool is acceptable; no accumulation occurs.\", \"timestamp\": \"2026-04-12\"}]' RETRACT.yaml && \\\necho \"---\" && yq '.vscode | length, .jetbrains | length' RETRACT.yaml",
+            "description": "Append invalid findings to RETRACT.yaml via yq"
+          },
+          "timestamp": "2026-04-13T00:15:03.229Z"
+        },
+        {
+          "type": "assistant",
+          "text": "`RETRACT.yaml` updated with 5 invalidated candidates. Below are the verified findings.\n\n---\n\n## Verified Findings\n\n### 1. `jetbrains/auto-encrypt-writes-plaintext-to-disk`\n**Severity:** `critical`\n**Affected files:**\n- `src/main/kotlin/com/sopsie/handlers/AutoBehaviorHandler.kt:212-239`\n- `src/main/kotlin/com/sopsie/listeners/SopsSaveListener.kt:33-47`\n\n**Evidence.** `SopsSaveListener.beforeDocumentSaving` delegates to `AutoBehaviorHandler.handleDocumentWillSave`, which for `SaveBehavior.AUTO_ENCRYPT` calls `autoEncryptDocument(document, file)` and returns immediately. `autoEncryptDocument` schedules a `Task.Backgroundable`; SOPS encryption and the subsequent `document.setText(encrypted)` (wrapped in `invokeLater { WriteCommandAction … }`) run **asynchronously** after `beforeDocumentSaving` has already returned.\n\n**Why it's a real defect.** `beforeDocumentSaving` is the IDE's last sync hook before the document bytes are flushed to disk. Because encryption is async, the save writes the *current plaintext* bytes. Encryption then runs, replaces the in-memory document, and marks it dirty — leaving encrypted content in memory but **cleartext secrets on disk** until the user saves again (and possibly indefinitely if they don't).\n\n**Fix direction.** Encryption must complete before the save proceeds: either do the `SopsRunner.encryptContent` + `document.setText` synchronously on EDT inside the `beforeDocumentSaving` callback (with a progress modal), or veto this save via a `FileDocumentSynchronizationVetoer`, perform encryption, then trigger the save.\n\n---\n\n### 2. `jetbrains/plaintext-temp-files-unrestricted-permissions`\n**Severity:** `high`\n**Affected files:**\n- `src/main/kotlin/com/sopsie/handlers/TempFileHandler.kt:78-83`\n- `src/main/kotlin/com/sopsie/handlers/DecryptedEditorHandler.kt:203-215`\n\n**Evidence.** Both sites do `File(tempDir, tempFileName)` in `System.getProperty(\"java.io.tmpdir\")` then `File(tempPath).writeText(decryptedContent, Charsets.UTF_8)`. No POSIX permission bits are applied at creation, and the filename is deterministic (`${name}.sops-edit.${ext}`) in `TempFileHandler` — so another local user/process can predict and race the path. `DecryptedEditorHandler` uses a timestamp suffix and calls `setReadOnly()` *after* write (TOCTOU window). Cleanup on IDE crash is best-effort (background `File.delete()` only, no `deleteOnExit` / shutdown hook).\n\n**Why it's a real defect.** Decrypted secrets land in a shared temp directory with the process umask (commonly `0644`), readable by any local user on multi-user hosts or shared CI runners. The `TempFileHandler` predictable name also allows a symlink/pre-create race before `writeText`.\n\n**Fix direction.** Create temp files atomically with `0600` via `Files.createTempFile(prefix, suffix, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(\"rw-------\")))` (falling back gracefully on Windows); randomize the name; register cleanup on IDE shutdown (`ShutDownTracker` / `deleteOnExit` fallback) so crashes don't leave plaintext behind.\n\n---\n\n### 3. `vscode/sops-stdin-no-backpressure`\n**Severity:** `low`\n**Affected files:** `src/sops/sopsRunner.ts:210-213`\n\n**Evidence.** `if (stdin) { proc.stdin.write(stdin); } proc.stdin.end();` — the return value of `write()` is ignored and there is no `drain` handling.\n\n**Why it's a real defect.** For large payloads (big encrypted files), Node buffers the full string in memory and never yields to backpressure, increasing memory spikes. Minor, but trivially fixed.\n\n**Fix direction.** Either await a drain when `write()` returns `false`, or pass the payload with `proc.stdin.end(stdin)` directly so Node handles the final-chunk flush.\n\n---\n\n### 4. `vscode/timeout-setting-unvalidated`\n**Severity:** `low`\n**Affected files:** `src/services/settingsService.ts:44-46`; consumed at `src/sops/sopsRunner.ts:194-200`\n\n**Evidence.** `getTimeout()` returns the user-supplied `decryptionTimeout` verbatim. `package.json` presumably declares it a number but nothing clamps it. A user-configured `0` or negative value feeds directly into `setTimeout(..., timeout)` which will fire immediately and reject every SOPS call with a `Timeout` error.\n\n**Why it's a real defect.** Zero/negative misconfiguration produces a silent, confusing failure mode (every operation \"times out\"). Cheap to guard.\n\n**Fix direction.** Clamp to a sane range (e.g., `Math.max(1000, Math.min(600000, raw))`) and/or validate via `package.json` `minimum`/`maximum` on the configuration contribution.\n\n---\n\n## Retractions written to `RETRACT.yaml`\n- `vscode/unhandled-settingsservice-disposal` — listener IS disposed (lines 15-21 push to `disposables`).\n- `vscode/sopsrunner-env-mutation` — SOPS legitimately requires inherited env (KMS creds, PATH).\n- `jetbrains/file-path-injection` — `GeneralCommandLine` uses argv; paths are the user's own files.\n- `jetbrains/listener-not-unsubscribed` — `messageBus.connect(widget)` scopes the connection to the widget Disposable.\n- `jetbrains/debounce-scheduler-leak` — app-level singleton with daemon threads; no accumulation.\n\n---\n\n**Approval requested**: shall I proceed with patch-level fixes for any of the four verified findings? The critical #1 (plaintext-on-disk) is the one that most warrants immediate action.",
+          "timestamp": "2026-04-13T00:15:43.776Z"
+        },
+        {
+          "type": "user",
+          "text": "apply all fixes. IS IS IMPORTANT THAT EACH FIX BE ITS OWN COMMIT. THIS IS ABSOLUTE",
+          "timestamp": "2026-04-13T00:16:18.839Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Planning 4 commits: jetbrains auto-encrypt sync, jetbrains temp perms, vscode stdin, vscode timeout. Let me inspect surrounding code first.",
+          "timestamp": "2026-04-13T00:16:41.730Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/TempFileHandler.kt",
+            "limit": 45,
+            "offset": 1
+          },
+          "timestamp": "2026-04-13T00:16:43.306Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Read",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/DecryptedEditorHandler.kt",
+            "limit": 60,
+            "offset": 1
+          },
+          "timestamp": "2026-04-13T00:16:44.460Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "cd /Users/jinx/MEGA/SOPSie-dev/jetbrains && git status && echo \"---\" && cd /Users/jinx/MEGA/SOPSie-dev/vscode && git status",
+            "description": "Check submodule git status"
+          },
+          "timestamp": "2026-04-13T00:16:45.219Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Starting with Fix #1 (critical auto-encrypt sync) in the jetbrains submodule.",
+          "timestamp": "2026-04-13T00:17:45.619Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/AutoBehaviorHandler.kt",
+            "new_string": "    /**\n     * Auto-encrypt document content before save.\n     *\n     * Runs synchronously via a modal progress dialog so the document is updated\n     * with ciphertext BEFORE `beforeDocumentSaving` returns. If encryption ran\n     * asynchronously, the IDE would flush the current plaintext to disk before\n     * the replacement completed, leaking secrets.\n     */\n    private fun autoEncryptDocument(document: Document, file: VirtualFile) {\n        val content = document.text\n        val encryptedRef = arrayOfNulls<String>(1)\n        val errorRef = arrayOfNulls<Throwable>(1)\n\n        val completed = ProgressManager.getInstance().runProcessWithProgressSynchronously(\n            {\n                try {\n                    encryptedRef[0] = sopsRunner.encryptContent(content, file.path)\n                } catch (ex: Throwable) {\n                    errorRef[0] = ex\n                }\n            },\n            \"Encrypting before save...\",\n            false,\n            project\n        )\n\n        if (!completed) return\n\n        val err = errorRef[0]\n        if (err != null) {\n            val msg = when (err) {\n                is SopsException -> err.error.message\n                else -> err.message\n            }\n            LOG.warn(\"Auto-encrypt failed for ${file.name}: $msg\", err)\n            showError(\"Auto-encrypt failed\", msg)\n            return\n        }\n\n        val encrypted = encryptedRef[0] ?: return\n        WriteCommandAction.runWriteCommandAction(project) {\n            document.setText(encrypted)\n        }\n        fileStateTracker.markEncrypted(file)\n        LOG.debug(\"Auto-encrypted ${file.name}\")\n    }",
+            "old_string": "    /**\n     * Auto-encrypt document content before save.\n     */\n    private fun autoEncryptDocument(document: Document, file: VirtualFile) {\n        val content = document.text\n\n        ProgressManager.getInstance().run(object : Task.Backgroundable(project, \"Encrypting before save...\", false) {\n            override fun run(indicator: ProgressIndicator) {\n                try {\n                    val encrypted = sopsRunner.encryptContent(content, file.path)\n\n                    // Update document with encrypted content\n                    ApplicationManager.getApplication().invokeLater({\n                        WriteCommandAction.runWriteCommandAction(project) {\n                            document.setText(encrypted)\n                        }\n                        // Mark as encrypted\n                        fileStateTracker.markEncrypted(file)\n                        LOG.debug(\"Auto-encrypted ${file.name}\")\n                    }, ModalityState.defaultModalityState())\n\n                } catch (ex: SopsException) {\n                    LOG.warn(\"Auto-encrypt failed for ${file.name}: ${ex.error.message}\", ex)\n                    showError(\"Auto-encrypt failed\", ex.error.message)\n                } catch (ex: Exception) {\n                    LOG.warn(\"Auto-encrypt failed for ${file.name}: ${ex.message}\", ex)\n                    showError(\"Auto-encrypt failed\", ex.message)\n                }\n            }\n        })\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-04-13T00:17:55.385Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "cd /Users/jinx/MEGA/SOPSie-dev/jetbrains && git add src/main/kotlin/com/sopsie/handlers/AutoBehaviorHandler.kt && git commit -m \"$(cat <<'EOF'\nfix(auto-encrypt): encrypt synchronously before save to prevent plaintext on disk\n\nAuto-encrypt previously scheduled SOPS encryption on a background task,\nso beforeDocumentSaving returned while the document still held plaintext.\nThe IDE then flushed that plaintext to disk, and encryption only replaced\nthe in-memory content afterward — leaking secrets to the filesystem until\nthe user saved a second time.\n\nRun encryption via runProcessWithProgressSynchronously (modal) and call\ndocument.setText on the EDT before returning, so the bytes the IDE writes\nare ciphertext.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nEOF\n)\"",
+            "description": "Commit fix #1 in jetbrains"
+          },
+          "timestamp": "2026-04-13T00:18:05.345Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Fix #1 committed. Now Fix #2 — secure temp file creation in jetbrains.",
+          "timestamp": "2026-04-13T00:18:16.997Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Write",
+          "input": {
+            "content": "package com.sopsie.util\n\nimport java.nio.file.Files\nimport java.nio.file.Path\nimport java.nio.file.attribute.FileAttribute\nimport java.nio.file.attribute.PosixFilePermissions\n\n/**\n * Creates temp files that hold decrypted secrets.\n *\n * On POSIX filesystems the file is created with 0600 permissions atomically,\n * so no other local user can read the plaintext and there is no window\n * between creation and a chmod call where the file is world-readable.\n *\n * `Files.createTempFile` also randomises the filename, eliminating the\n * predictable-path pre-create/symlink race the previous deterministic\n * naming scheme allowed.\n */\nobject SecureTempFiles {\n\n    private val IS_POSIX: Boolean by lazy {\n        try {\n            java.nio.file.FileSystems.getDefault()\n                .supportedFileAttributeViews()\n                .contains(\"posix\")\n        } catch (_: Exception) {\n            false\n        }\n    }\n\n    /**\n     * Create a temp file with restrictive permissions and write [content] to it.\n     * Registers the file for best-effort deletion on JVM exit.\n     */\n    fun create(prefix: String, suffix: String, content: String): Path {\n        // Files.createTempFile requires a prefix of at least 3 characters\n        val safePrefix = prefix.padEnd(3, '_')\n        val attrs: Array<FileAttribute<*>> = if (IS_POSIX) {\n            arrayOf(PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(\"rw-------\")))\n        } else {\n            emptyArray()\n        }\n        val path = Files.createTempFile(safePrefix, suffix, *attrs)\n        Files.writeString(path, content)\n        path.toFile().deleteOnExit()\n        return path\n    }\n}\n",
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/util/SecureTempFiles.kt"
+          },
+          "timestamp": "2026-04-13T00:18:25.131Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/TempFileHandler.kt",
+            "new_string": "import com.sopsie.execution.SopsRunner\nimport com.sopsie.model.SopsException\nimport com.sopsie.util.SecureTempFiles\nimport java.io.File\nimport java.util.concurrent.ConcurrentHashMap",
+            "old_string": "import com.sopsie.execution.SopsRunner\nimport com.sopsie.model.SopsException\nimport java.io.File\nimport java.util.concurrent.ConcurrentHashMap",
+            "replace_all": false
+          },
+          "timestamp": "2026-04-13T00:18:28.853Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/TempFileHandler.kt",
+            "new_string": "    fun createTempFile(originalFile: VirtualFile, decryptedContent: String): VirtualFile? {\n        val originalPath = originalFile.path\n        val ext = originalFile.extension ?: \"\"\n        val nameWithoutExt = originalFile.nameWithoutExtension\n        val suffix = if (ext.isNotEmpty()) \".sops-edit.$ext\" else \".sops-edit\"\n\n        try {\n            val path = SecureTempFiles.create(\"$nameWithoutExt-\", suffix, decryptedContent)\n            val tempPath = path.toAbsolutePath().toString()\n\n            val tempVirtualFile = LocalFileSystem.getInstance().refreshAndFindFileByPath(tempPath)\n            if (tempVirtualFile != null) {\n                tempToOriginal[tempPath] = originalPath\n                tempFiles[tempPath] = tempVirtualFile\n                LOG.debug(\"Created temp file: $tempPath -> $originalPath\")\n                return tempVirtualFile\n            } else {\n                LOG.warn(\"Failed to find temp file in VFS: $tempPath\")\n            }\n        } catch (e: Exception) {\n            LOG.warn(\"Failed to create temp file: ${e.message}\", e)\n        }\n\n        return null\n    }",
+            "old_string": "    fun createTempFile(originalFile: VirtualFile, decryptedContent: String): VirtualFile? {\n        val originalPath = originalFile.path\n        val ext = originalFile.extension ?: \"\"\n        val nameWithoutExt = originalFile.nameWithoutExtension\n\n        // Create unique temp file name: {name}.sops-edit.{ext}\n        val tempFileName = if (ext.isNotEmpty()) {\n            \"$nameWithoutExt.sops-edit.$ext\"\n        } else {\n            \"$nameWithoutExt.sops-edit\"\n        }\n\n        val tempDir = System.getProperty(\"java.io.tmpdir\")\n        val tempPath = File(tempDir, tempFileName).absolutePath\n\n        try {\n            // Write decrypted content to temp file\n            File(tempPath).writeText(decryptedContent, Charsets.UTF_8)\n\n            // Refresh VFS to see the new file\n            val tempVirtualFile = LocalFileSystem.getInstance().refreshAndFindFileByPath(tempPath)\n            if (tempVirtualFile != null) {\n                // Track the mapping\n                tempToOriginal[tempPath] = originalPath\n                tempFiles[tempPath] = tempVirtualFile\n                LOG.debug(\"Created temp file: $tempPath -> $originalPath\")\n                return tempVirtualFile\n            } else {\n                LOG.warn(\"Failed to find temp file in VFS: $tempPath\")\n            }\n        } catch (e: Exception) {\n            LOG.warn(\"Failed to create temp file: ${e.message}\", e)\n        }\n\n        return null\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-04-13T00:18:39.760Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/DecryptedEditorHandler.kt",
+            "new_string": "import com.sopsie.execution.SopsRunner\nimport com.sopsie.model.SopsException\nimport com.sopsie.services.DecryptedViewMode\nimport com.sopsie.services.SopsSettingsService\nimport com.sopsie.util.SecureTempFiles\nimport java.io.File\nimport java.util.concurrent.ConcurrentHashMap",
+            "old_string": "import com.sopsie.execution.SopsRunner\nimport com.sopsie.model.SopsException\nimport com.sopsie.services.DecryptedViewMode\nimport com.sopsie.services.SopsSettingsService\nimport java.io.File\nimport java.util.concurrent.ConcurrentHashMap",
+            "replace_all": false
+          },
+          "timestamp": "2026-04-13T00:18:44.404Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/jetbrains/src/main/kotlin/com/sopsie/handlers/DecryptedEditorHandler.kt",
+            "new_string": "    private fun createPreviewTempFile(originalFile: VirtualFile, decryptedContent: String): VirtualFile? {\n        val ext = originalFile.extension ?: \"\"\n        val nameWithoutExt = originalFile.nameWithoutExtension\n        val suffix = if (ext.isNotEmpty()) \".sops-preview.$ext\" else \".sops-preview\"\n\n        try {\n            val path = SecureTempFiles.create(\"$nameWithoutExt-preview-\", suffix, decryptedContent)\n            path.toFile().setReadOnly()\n            val tempPath = path.toAbsolutePath().toString()\n            return LocalFileSystem.getInstance().refreshAndFindFileByPath(tempPath)\n        } catch (e: Exception) {\n            LOG.warn(\"Failed to create preview temp file: ${e.message}\", e)\n        }\n\n        return null\n    }",
+            "old_string": "    private fun createPreviewTempFile(originalFile: VirtualFile, decryptedContent: String): VirtualFile? {\n        val ext = originalFile.extension ?: \"\"\n        val nameWithoutExt = originalFile.nameWithoutExtension\n        val uniqueSuffix = System.currentTimeMillis()\n\n        // Create unique temp file name: {name}.sops-preview-{timestamp}.{ext}\n        val tempFileName = if (ext.isNotEmpty()) {\n            \"$nameWithoutExt.sops-preview-$uniqueSuffix.$ext\"\n        } else {\n            \"$nameWithoutExt.sops-preview-$uniqueSuffix\"\n        }\n\n        val tempDir = System.getProperty(\"java.io.tmpdir\")\n        val tempPath = File(tempDir, tempFileName).absolutePath\n\n        try {\n            // Write decrypted content to temp file\n            val tempFile = File(tempPath)\n            tempFile.writeText(decryptedContent, Charsets.UTF_8)\n\n            // Make the file read-only\n            tempFile.setReadOnly()\n\n            // Refresh VFS to see the new file\n            return LocalFileSystem.getInstance().refreshAndFindFileByPath(tempPath)\n        } catch (e: Exception) {\n            LOG.warn(\"Failed to create preview temp file: ${e.message}\", e)\n        }\n\n        return null\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-04-13T00:18:52.974Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "git add src/main/kotlin/com/sopsie/util/SecureTempFiles.kt src/main/kotlin/com/sopsie/handlers/TempFileHandler.kt src/main/kotlin/com/sopsie/handlers/DecryptedEditorHandler.kt && git status && git commit -m \"$(cat <<'EOF'\nfix(temp-files): create decrypted temp files with 0600 perms and random names\n\nPlaintext secrets were written to java.io.tmpdir with the process umask\n(commonly world-readable) and with a deterministic filename, allowing\nanother local user to read the plaintext or pre-create a symlink at the\npredictable path before the write.\n\nRoute both edit-in-place and preview temp files through a new\nSecureTempFiles helper that uses Files.createTempFile with a POSIX\n0600 FileAttribute (set atomically at creation), randomises the\nfilename, and registers deleteOnExit as a best-effort fallback for\nclean JVM shutdown.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nEOF\n)\"",
+            "description": "Commit fix #2 in jetbrains"
+          },
+          "timestamp": "2026-04-13T00:19:01.843Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Fix #2 committed. Now Fix #3 in vscode submodule — stdin backpressure.",
+          "timestamp": "2026-04-13T00:19:55.392Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/vscode/src/sops/sopsRunner.ts",
+            "new_string": "            if (stdin) {\n                proc.stdin.end(stdin);\n            } else {\n                proc.stdin.end();\n            }",
+            "old_string": "            if (stdin) {\n                proc.stdin.write(stdin);\n            }\n            proc.stdin.end();",
+            "replace_all": false
+          },
+          "timestamp": "2026-04-13T00:19:57.255Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Bash",
+          "input": {
+            "command": "cd /Users/jinx/MEGA/SOPSie-dev/vscode && git add src/sops/sopsRunner.ts && git commit -m \"$(cat <<'EOF'\nfix(sops-runner): pass stdin payload through proc.stdin.end for proper flush\n\nproc.stdin.write(stdin) followed by proc.stdin.end() ignored the write's\nreturn value, so Node buffered the entire plaintext without honouring\nbackpressure on large payloads. Passing the buffer to end() lets Node\nhandle the final-chunk flush correctly.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nEOF\n)\"",
+            "description": "Commit fix #3 in vscode"
+          },
+          "timestamp": "2026-04-13T00:20:02.328Z"
+        },
+        {
+          "type": "assistant",
+          "text": "Now Fix #4 — timeout clamp.",
+          "timestamp": "2026-04-13T00:21:36.092Z"
+        },
+        {
+          "type": "tool_use",
+          "name": "Edit",
+          "input": {
+            "file_path": "/Users/jinx/MEGA/SOPSie-dev/vscode/src/services/settingsService.ts",
+            "new_string": "    /**\n     * Get the decryption timeout in milliseconds.\n     * Clamped to [1000, 600000] so a zero or negative user value does not\n     * cause every SOPS operation to time out immediately.\n     */\n    getTimeout(): number {\n        const raw = this.getConfig().get<number>('decryptionTimeout', 30000);\n        if (!Number.isFinite(raw)) {\n            return 30000;\n        }\n        return Math.max(1000, Math.min(600000, raw));\n    }",
+            "old_string": "    /**\n     * Get the decryption timeout in milliseconds\n     */\n    getTimeout(): number {\n        return this.getConfig().get<number>('decryptionTimeout', 30000);\n    }",
+            "replace_all": false
+          },
+          "timestamp": "2026-04-13T00:21:39.296Z"
+        }
+      ],
+      "total_additions": 11,
+      "total_deletions": 4,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    }
+  }
+}
