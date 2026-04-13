@@ -151,7 +151,7 @@ suite('tempFileHandler', () => {
             getText: () => 'plaintext-edited'
         } as unknown as vscode.TextDocument;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         await (handler as any).onDocumentSaved(doc);
 
         assert.strictEqual(runner.encryptCalls.length, 1);
@@ -173,7 +173,7 @@ suite('tempFileHandler', () => {
             getText: () => 'unrelated'
         } as unknown as vscode.TextDocument;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         await (handler as any).onDocumentSaved(doc);
         assert.strictEqual(runner.encryptCalls.length, 0);
     });
@@ -199,7 +199,7 @@ suite('tempFileHandler', () => {
             getText: () => 'data'
         } as unknown as vscode.TextDocument;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         await (handler as any).onDocumentSaved(doc);
 
         assert.strictEqual(runner.encryptCalls[0].configPath, '/repo/.sops.yml');
@@ -229,7 +229,7 @@ suite('tempFileHandler', () => {
         } as unknown as vscode.TextDocument;
 
         // Should NOT throw — error is surfaced through showErrorMessage
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         await (handler as any).onDocumentSaved(doc);
 
         // Original file untouched (encryption failed before write)

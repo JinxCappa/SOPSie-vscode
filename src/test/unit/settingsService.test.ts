@@ -51,31 +51,31 @@ suite('settingsService', () => {
 
     test('getTimeout clamps via direct config stub: NaN falls back to 30000', () => {
         // Reach into the cached config layer to simulate user-supplied junk.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (svc as any).cachedConfig = stubConfig({ decryptionTimeout: NaN });
         assert.strictEqual(svc.getTimeout(), 30000);
     });
 
     test('getTimeout clamps zero up to 1000ms', () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (svc as any).cachedConfig = stubConfig({ decryptionTimeout: 0 });
         assert.strictEqual(svc.getTimeout(), 1000);
     });
 
     test('getTimeout clamps negative up to 1000ms', () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (svc as any).cachedConfig = stubConfig({ decryptionTimeout: -5000 });
         assert.strictEqual(svc.getTimeout(), 1000);
     });
 
     test('getTimeout clamps very large values down to 600000ms', () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (svc as any).cachedConfig = stubConfig({ decryptionTimeout: 9_999_999 });
         assert.strictEqual(svc.getTimeout(), 600000);
     });
 
     test('getTimeout passes through reasonable values unchanged', () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (svc as any).cachedConfig = stubConfig({ decryptionTimeout: 45000 });
         assert.strictEqual(svc.getTimeout(), 45000);
     });

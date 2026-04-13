@@ -10,7 +10,7 @@ function parseError(stderr: string, code: number | null = 1): SopsError {
         getSopsPath: () => 'sops',
         getTimeout: () => 5000
     } as unknown as SettingsService);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     return (runner as any).parseError(stderr, code);
 }
 
@@ -92,7 +92,7 @@ suite('sopsRunner.parseError', () => {
             getSopsPath: () => 'sops',
             getTimeout: () => 5000
         } as unknown as SettingsService);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const e = (runner as any).createError(SopsErrorType.CliNotFound, 'missing');
         assert.strictEqual(e.recoverable, false);
     });
