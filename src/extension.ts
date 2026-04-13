@@ -180,16 +180,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Listen for configuration changes
     context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration((e) => {
+        vscode.workspace.onDidChangeConfiguration(async (e) => {
             if (e.affectsConfiguration('sopsie')) {
                 contextManager.setEditInPlaceContext(settingsService.useEditInPlace());
-                documentWatcher.updateCurrentEditor();
 
                 // Update log level if debug setting changed
                 if (e.affectsConfiguration('sopsie.enableDebugLogging')) {
                     loggerService.updateLogLevel(settingsService.isDebugLoggingEnabled());
                     logger.info(`Debug logging setting changed: ${settingsService.isDebugLoggingEnabled() ? 'enabled' : 'disabled'}`);
                 }
+
+                await documentWatcher.updateCurrentEditor();
             }
         })
     );

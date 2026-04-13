@@ -22,6 +22,13 @@ export class DocumentWatcher implements vscode.Disposable {
     private disposables: vscode.Disposable[] = [];
     private fileStateTracker = new FileStateTracker();
     private autoBehaviorHandler: AutoBehaviorHandler;
+    // Tracks the latest activation to discard stale in-flight handlers.
+    // Rapid editor switches would otherwise race, interleaving preview
+    // open/close and context updates for editors the user has left.
+    private activationGeneration = 0;
+    // Serializes activation handlers so mutations to the decrypted view
+    // (open/close/switch) cannot interleave across rapid activations.
+    private activationQueue: Promise<void> = Promise.resolve();
 
     constructor(
         private configManager: ConfigManager,
@@ -46,7 +53,7 @@ export class DocumentWatcher implements vscode.Disposable {
         // Track active editor changes
         this.disposables.push(
             vscode.window.onDidChangeActiveTextEditor((editor) => {
-                this.onEditorActivated(editor);
+                this.enqueueActivation(editor);
             })
         );
 
@@ -96,11 +103,25 @@ export class DocumentWatcher implements vscode.Disposable {
      * Refreshes VS Code context keys and status bar.
      */
     async updateCurrentEditor(): Promise<void> {
-        await this.onEditorActivated(vscode.window.activeTextEditor);
+        await this.enqueueActivation(vscode.window.activeTextEditor);
+    }
+
+    private enqueueActivation(
+        editor: vscode.TextEditor | undefined
+    ): Promise<void> {
+        const generation = ++this.activationGeneration;
+        const next = this.activationQueue.then(() =>
+            this.onEditorActivated(editor, generation)
+        );
+        // Swallow errors on the chain so one failure does not poison later
+        // activations; individual handlers already log their own errors.
+        this.activationQueue = next.catch(() => undefined);
+        return next;
     }
 
     private async onEditorActivated(
-        editor: vscode.TextEditor | undefined
+        editor: vscode.TextEditor | undefined,
+        generation: number
     ): Promise<void> {
         if (!editor) {
             this.contextManager.clearContext();
@@ -109,6 +130,12 @@ export class DocumentWatcher implements vscode.Disposable {
         }
 
         await this.updateContext(editor.document.uri, editor.document);
+
+        // A newer activation has superseded us — skip the decrypted view
+        // work so we do not open/close/switch on behalf of a stale editor.
+        if (generation !== this.activationGeneration) {
+            return;
+        }
 
         // Check if we should update the preview/edit panel to match the focused file
         if (editor.document.uri.scheme === 'file') {
