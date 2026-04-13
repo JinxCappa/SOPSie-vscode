@@ -1,23 +1,7 @@
-src/sops/sopsRunner.ts
-  69d52f7d6d8b91ec 285,289
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.2.8",
   "base_commit_sha": "4904ae94b03ff0015bfc4407565e7025828b6d14",
-  "prompts": {
-    "69d52f7d6d8b91ec": {
-      "agent_id": {
-        "tool": "claude",
-        "id": "d9c29d56-ebe8-4562-a9c5-9bb607b951ae",
-        "model": "claude-opus-4-6"
-      },
-      "human_author": "JinxCappa",
-      "messages": [],
-      "total_additions": 2,
-      "total_deletions": 2,
-      "accepted_lines": 2,
-      "overriden_lines": 0
-    }
-  }
+  "prompts": {}
 }
