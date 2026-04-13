@@ -1,5 +1,7 @@
 src/services/settingsService.ts
   69098e338da60765 42-44,47-51
+src/sops/sopsRunner.ts
+  69098e338da60765 211-213
 ---
 {
   "schema_version": "authorship/3.0.0",
@@ -14,8 +16,8 @@ src/services/settingsService.ts
       },
       "human_author": "JinxCappa",
       "messages": [],
-      "total_additions": 8,
-      "total_deletions": 2,
+      "total_additions": 11,
+      "total_deletions": 4,
       "accepted_lines": 11,
       "overriden_lines": 0
     }
