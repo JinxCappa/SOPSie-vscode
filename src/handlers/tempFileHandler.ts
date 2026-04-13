@@ -136,6 +136,20 @@ export class TempFileHandler implements vscode.Disposable {
         }
     }
 
+    /**
+     * Delete a temp file and untrack it. Used by callers that created
+     * the temp file via createTempFile but failed to open it in an
+     * editor, so onDidCloseTextDocument will never fire.
+     */
+    async discardTempFile(tempUri: vscode.Uri): Promise<void> {
+        const tempPath = tempUri.fsPath;
+        if (!this.tempToOriginal.has(tempPath)) {
+            return;
+        }
+        this.tempToOriginal.delete(tempPath);
+        await this.removeTempFile(tempPath);
+    }
+
     private async removeTempFile(tempPath: string): Promise<void> {
         try {
             await fs.promises.unlink(tempPath);
