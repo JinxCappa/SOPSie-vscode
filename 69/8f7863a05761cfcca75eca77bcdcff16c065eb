@@ -1,0 +1,25 @@
+src/services/settingsService.ts
+  69098e338da60765 42-44,47-51
+src/sops/sopsRunner.ts
+  69098e338da60765 211-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "698f7863a05761cfcca75eca77bcdcff16c065eb",
+  "prompts": {
+    "69098e338da60765": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b9c8c825-14cd-4e0e-bb3c-dfe5b0e64222",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 4,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    }
+  }
+}
