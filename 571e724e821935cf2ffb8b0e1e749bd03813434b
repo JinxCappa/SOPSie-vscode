@@ -1,0 +1,23 @@
+src/handlers/tempFileHandler.ts
+  1e9a3dd6251bb51d 50-59,63-66,135-137,139-149,162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "571e724e821935cf2ffb8b0e1e749bd03813434b",
+  "prompts": {
+    "1e9a3dd6251bb51d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4925a7fc-c158-4e5a-a260-7341a9d0b7a4",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 29,
+      "total_deletions": 12,
+      "accepted_lines": 29,
+      "overriden_lines": 0
+    }
+  }
+}
