@@ -221,6 +221,25 @@ Enable debug logging to see detailed information about what SOPSie is doing:
 
 Both steps are required - SOPSie's setting controls whether debug messages are generated, and VS Code's log level controls whether they are displayed.
 
+## Building from Source
+
+Requires Node.js 22.
+
+```bash
+npm ci
+npm run compile      # Dev build (sourcemaps, no minification)
+npm run package      # Release build (minified)
+```
+
+Or use the provided justfile:
+
+```bash
+just dev        # Dev build
+just release    # Package .vsix
+just lint       # Lint source
+just test       # Run tests
+```
+
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
