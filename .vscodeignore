@@ -1,0 +1,16 @@
+.gitignore
+.github/**
+.vscode-test.mjs
+Dockerfile
+esbuild.js
+eslint.config.mjs
+flake.lock
+flake.nix
+justfile
+tsconfig.json
+tsconfig.test.json
+src/**
+mock/**
+out/**
+node_modules/**
+*.vsix
