@@ -171,9 +171,21 @@ export class TempFileHandler implements vscode.Disposable {
         this.disposables.forEach((d) => d.dispose());
         this.disposables = [];
 
-        // Clean up any remaining temp files
+        // Synchronous cleanup: VS Code calls dispose() on deactivation and
+        // does not wait for returned promises before the extension host
+        // exits. Using fs.promises here would leave plaintext temp files
+        // on disk if unlink had not resolved by the time the host unloads.
         for (const tempPath of this.tempToOriginal.keys()) {
-            this.removeTempFile(tempPath);
+            try {
+                fs.unlinkSync(tempPath);
+            } catch (err) {
+                logger.warn(`Could not delete temp file ${tempPath}: ${getErrorMessage(err)}`);
+            }
+            try {
+                fs.rmdirSync(path.dirname(tempPath));
+            } catch {
+                // Directory may be non-empty or already gone; ignore.
+            }
         }
         this.tempToOriginal.clear();
     }
