@@ -39,6 +39,22 @@ docker-dev:
 docker-release:
     docker build --target artifact --build-arg MODE=release --output type=local,dest=. .
 
+# Create a release: bump version, update changelog, commit, tag, and push
+publish version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION="{{version}}"
+    VERSION="${VERSION#v}"
+    echo "Preparing release v${VERSION}..."
+    npm version "${VERSION}" --no-git-tag-version
+    git-cliff --config keepachangelog --tag "v${VERSION}" --output CHANGELOG.md --ignore-tags ".*-.*"
+    git add package.json package-lock.json CHANGELOG.md
+    git commit -m "chore: prepare for v${VERSION}"
+    git tag -s "v${VERSION}" -m "v${VERSION}"
+    git push origin main
+    git push origin "v${VERSION}"
+    echo "Released v${VERSION} — workflow will build and publish."
+
 # Clean build artifacts
 clean:
     rm -rf out dist *.vsix node_modules
