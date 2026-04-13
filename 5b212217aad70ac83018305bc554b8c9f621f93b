@@ -1,0 +1,38 @@
+justfile
+  01a93087705bfcee 42-57
+.github/workflows/release.yaml
+  01a93087705bfcee 1-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "5b212217aad70ac83018305bc554b8c9f621f93b",
+  "prompts": {
+    "01a93087705bfcee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "47aa9273-8532-4f96-866b-318ffb86a926",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 578,
+      "total_deletions": 0,
+      "accepted_lines": 578,
+      "overriden_lines": 0
+    },
+    "d63088c59fab05bb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "600f9893-572f-4010-aab9-ffd0a6190e19",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
