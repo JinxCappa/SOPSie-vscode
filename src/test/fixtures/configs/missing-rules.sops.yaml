@@ -1,0 +1,2 @@
+destination_rules:
+  - s3_bucket: example
