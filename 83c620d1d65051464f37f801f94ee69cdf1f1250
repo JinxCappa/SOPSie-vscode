@@ -1,0 +1,52 @@
+src/test/unit/decryptedContentProvider.test.ts
+  d63088c59fab05bb 1-148
+package.json
+  d63088c59fab05bb 309-311
+src/test/unit/tempFileHandler.test.ts
+  d63088c59fab05bb 1-241
+src/test/unit/configParser.test.ts
+  d63088c59fab05bb 1-107
+src/test/unit/settingsService.test.ts
+  d63088c59fab05bb 1-93
+src/test/unit/sopsRunner.test.ts
+  d63088c59fab05bb 1-99
+src/test/unit/sopsDetector.test.ts
+  d63088c59fab05bb 97-102
+src/test/unit/rulesMatcher.test.ts
+  d63088c59fab05bb 1-104
+src/test/unit/fileStateTracker.test.ts
+  d63088c59fab05bb 1-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "83c620d1d65051464f37f801f94ee69cdf1f1250",
+  "prompts": {
+    "59aab0ba58fe3693": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "303fcdab-0bdc-404b-be9d-50b9cf68a596",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "d63088c59fab05bb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "600f9893-572f-4010-aab9-ffd0a6190e19",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 1254,
+      "total_deletions": 3,
+      "accepted_lines": 1254,
+      "overriden_lines": 0
+    }
+  }
+}
