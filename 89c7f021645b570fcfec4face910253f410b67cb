@@ -1,0 +1,23 @@
+src/handlers/autoBehaviorHandler.ts
+  1e9a3dd6251bb51d 123-126,145-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "89c7f021645b570fcfec4face910253f410b67cb",
+  "prompts": {
+    "1e9a3dd6251bb51d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4925a7fc-c158-4e5a-a260-7341a9d0b7a4",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 26,
+      "total_deletions": 8,
+      "accepted_lines": 26,
+      "overriden_lines": 0
+    }
+  }
+}
