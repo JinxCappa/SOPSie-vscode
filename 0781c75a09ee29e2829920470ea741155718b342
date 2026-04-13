@@ -1,0 +1,23 @@
+src/extension.ts
+  3fba26b420b69ece 183,192-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "0781c75a09ee29e2829920470ea741155718b342",
+  "prompts": {
+    "3fba26b420b69ece": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e34a12e5-05e1-47b1-ba4b-51c88bbf17a3",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 2,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
