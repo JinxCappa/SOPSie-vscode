@@ -1,0 +1,25 @@
+src/handlers/tempFileHandler.ts
+  1e9a3dd6251bb51d 139-152
+src/services/decryptedViewService.ts
+  1e9a3dd6251bb51d 138,150,156-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "2c947cbd9afbfce6e616a6d490755057f083cac8",
+  "prompts": {
+    "1e9a3dd6251bb51d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4925a7fc-c158-4e5a-a260-7341a9d0b7a4",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 22,
+      "total_deletions": 0,
+      "accepted_lines": 22,
+      "overriden_lines": 0
+    }
+  }
+}
