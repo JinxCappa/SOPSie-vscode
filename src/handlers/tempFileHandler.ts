@@ -47,15 +47,24 @@ export class TempFileHandler implements vscode.Disposable {
         const ext = path.extname(originalPath);
         const nameWithoutExt = path.basename(originalPath, ext);
 
-        // Create unique temp file name: {name}.sops-edit.{ext}
+        // Create a per-invocation subdirectory with user-only permissions.
+        // This prevents other local users from reading the plaintext and
+        // avoids predictable filenames in a shared temp directory.
+        const tempDir = await fs.promises.mkdtemp(
+            path.join(os.tmpdir(), 'sopsie-')
+        );
+        if (process.platform !== 'win32') {
+            await fs.promises.chmod(tempDir, 0o700);
+        }
+
         const tempFileName = `${nameWithoutExt}.sops-edit${ext}`;
-        const tempDir = os.tmpdir();
         const tempPath = path.join(tempDir, tempFileName);
 
-        // Write decrypted content to temp file
-        await fs.promises.writeFile(tempPath, decryptedContent, 'utf8');
+        await fs.promises.writeFile(tempPath, decryptedContent, {
+            encoding: 'utf8',
+            mode: 0o600
+        });
 
-        // Track the mapping
         this.tempToOriginal.set(tempPath, originalPath);
         logger.debug(`Created temp file: ${tempPath} -> ${originalPath}`);
 
@@ -123,11 +132,35 @@ export class TempFileHandler implements vscode.Disposable {
         if (this.tempToOriginal.has(tempPath)) {
             this.tempToOriginal.delete(tempPath);
             logger.debug(`Cleaned up temp file tracking: ${tempPath}`);
+            this.removeTempFile(tempPath);
+        }
+    }
 
-            // Delete the temp file from disk
-            fs.promises.unlink(tempPath).catch((err) => {
-                logger.warn(`Could not delete temp file ${tempPath}: ${getErrorMessage(err)}`);
-            });
+    /**
+     * Delete a temp file and untrack it. Used by callers that created
+     * the temp file via createTempFile but failed to open it in an
+     * editor, so onDidCloseTextDocument will never fire.
+     */
+    async discardTempFile(tempUri: vscode.Uri): Promise<void> {
+        const tempPath = tempUri.fsPath;
+        if (!this.tempToOriginal.has(tempPath)) {
+            return;
+        }
+        this.tempToOriginal.delete(tempPath);
+        await this.removeTempFile(tempPath);
+    }
+
+    private async removeTempFile(tempPath: string): Promise<void> {
+        try {
+            await fs.promises.unlink(tempPath);
+        } catch (err) {
+            logger.warn(`Could not delete temp file ${tempPath}: ${getErrorMessage(err)}`);
+        }
+        // Best-effort removal of the per-invocation parent directory.
+        try {
+            await fs.promises.rmdir(path.dirname(tempPath));
+        } catch {
+            // Directory may be non-empty or already gone; ignore.
         }
     }
 
@@ -138,11 +171,21 @@ export class TempFileHandler implements vscode.Disposable {
         this.disposables.forEach((d) => d.dispose());
         this.disposables = [];
 
-        // Clean up any remaining temp files
+        // Synchronous cleanup: VS Code calls dispose() on deactivation and
+        // does not wait for returned promises before the extension host
+        // exits. Using fs.promises here would leave plaintext temp files
+        // on disk if unlink had not resolved by the time the host unloads.
         for (const tempPath of this.tempToOriginal.keys()) {
-            fs.promises.unlink(tempPath).catch((err) => {
-                logger.warn(`Could not delete temp file on dispose ${tempPath}: ${getErrorMessage(err)}`);
-            });
+            try {
+                fs.unlinkSync(tempPath);
+            } catch (err) {
+                logger.warn(`Could not delete temp file ${tempPath}: ${getErrorMessage(err)}`);
+            }
+            try {
+                fs.rmdirSync(path.dirname(tempPath));
+            } catch {
+                // Directory may be non-empty or already gone; ignore.
+            }
         }
         this.tempToOriginal.clear();
     }

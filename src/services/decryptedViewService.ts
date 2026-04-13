@@ -135,6 +135,7 @@ export class DecryptedViewService implements vscode.Disposable {
 
         // Set guard flag to prevent auto-close/focus-return during the entire operation
         this.editorGroupTracker.setExtensionTriggeredOpen(true);
+        let opened = false;
         try {
             const doc = await vscode.workspace.openTextDocument(tempUri);
             const viewColumn = options.targetColumn
@@ -146,11 +147,18 @@ export class DecryptedViewService implements vscode.Disposable {
                 preview: false,
                 preserveFocus: options.preserveFocus
             });
+            opened = true;
 
             await this.setDocumentLanguage(doc, sourceUri.fsPath);
             this.trackOpenedDocument(doc, sourceUri, shownEditor, viewColumn, options.originalColumn);
         } finally {
             this.editorGroupTracker.setExtensionTriggeredOpen(false);
+            if (!opened) {
+                // Opening the editor failed. onDidCloseTextDocument will
+                // never fire for this temp file, so delete it now to
+                // avoid leaving plaintext in the temp directory.
+                await this.tempFileHandler.discardTempFile(tempUri);
+            }
         }
 
         if (options.showInfoMessage !== false) {
