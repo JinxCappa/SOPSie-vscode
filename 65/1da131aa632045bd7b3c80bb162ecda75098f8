@@ -1,0 +1,23 @@
+src/sops/sopsRunner.ts
+  d63088c59fab05bb 2-3,67-76,82-88,90-94,96-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "651da131aa632045bd7b3c80bb162ecda75098f8",
+  "prompts": {
+    "d63088c59fab05bb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "600f9893-572f-4010-aab9-ffd0a6190e19",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 43,
+      "total_deletions": 11,
+      "accepted_lines": 433,
+      "overriden_lines": 0
+    }
+  }
+}
