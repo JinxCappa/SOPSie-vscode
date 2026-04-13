@@ -1,0 +1,23 @@
+src/watchers/documentWatcher.ts
+  3fba26b420b69ece 25-31,56,106,109,111-124,134-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "c350b03557f0a014d913adc90ba372eeba3aefde",
+  "prompts": {
+    "3fba26b420b69ece": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e34a12e5-05e1-47b1-ba4b-51c88bbf17a3",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 3,
+      "accepted_lines": 30,
+      "overriden_lines": 0
+    }
+  }
+}
