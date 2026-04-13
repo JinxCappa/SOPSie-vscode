@@ -120,6 +120,10 @@ export class AutoBehaviorHandler {
 
     private async autoEncrypt(doc: vscode.TextDocument): Promise<vscode.TextEdit[]> {
         const content = doc.getText();
+        const fullRange = new vscode.Range(
+            doc.positionAt(0),
+            doc.positionAt(content.length)
+        );
 
         try {
             // Find the config file to use (supports both .sops.yaml and .sops.yml)
@@ -131,12 +135,6 @@ export class AutoBehaviorHandler {
                 configPath ?? undefined
             );
 
-            // Return edit to replace content
-            const fullRange = new vscode.Range(
-                doc.positionAt(0),
-                doc.positionAt(content.length)
-            );
-
             // Mark as encrypted AFTER successful encryption
             this.fileStateTracker.markEncrypted(doc.uri);
 
@@ -144,8 +142,28 @@ export class AutoBehaviorHandler {
         } catch (error) {
             // State remains as decrypted on error
             handleError(error);
-            // Return empty edits on error - file will save unencrypted
-            return [];
+
+            // Encryption failed. VS Code cannot veto the save from within
+            // willSaveWaitUntil, so if we return no edits the plaintext
+            // buffer would overwrite the ciphertext on disk. Revert the
+            // buffer to the on-disk ciphertext so the save is effectively
+            // a no-op at the file level.
+            try {
+                const diskBytes = await vscode.workspace.fs.readFile(doc.uri);
+                const diskContent = Buffer.from(diskBytes).toString('utf-8');
+                vscode.window.showErrorMessage(
+                    'Auto-encrypt failed. The saved file has been kept as its previous encrypted content to prevent plaintext exposure. Your in-memory edits are preserved only if you undo this save.'
+                );
+                return [vscode.TextEdit.replace(fullRange, diskContent)];
+            } catch {
+                // Could not read prior ciphertext (e.g., file was deleted).
+                // Replace the buffer with an empty string so nothing
+                // plaintext is persisted.
+                vscode.window.showErrorMessage(
+                    'Auto-encrypt failed and previous encrypted content could not be recovered. The file has been emptied to prevent plaintext exposure.'
+                );
+                return [vscode.TextEdit.replace(fullRange, '')];
+            }
         }
     }
 
