@@ -1,4 +1,6 @@
 import { spawn } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { SopsError, SopsErrorType } from '../types';
 import { SettingsService } from '../services/settingsService';
@@ -62,24 +64,54 @@ export class SopsRunner {
     }
 
     /**
-     * Encrypt content via stdin with --filename-override for rule matching.
-     * Pipes plaintext to SOPS stdin — no temp file needed.
-     * SOPS uses the override path for creation_rules matching and format detection.
+     * Encrypt in-memory content for a logical file path.
+     *
+     * Stages the payload in a secure per-invocation temp file and passes
+     * --filename-override so SOPS resolves creation_rules and infers the
+     * input/output format from the *original* path, not the temp path.
+     * This avoids the Windows-incompatible /dev/stdin trick that an
+     * earlier stdin-based version relied on, while still satisfying the
+     * rule-matching requirement that motivated dropping the previous
+     * temp-file approach.
+     *
      * @param configPath Optional path to .sops.yaml/.sops.yml config file
      */
     async encryptContent(content: string, filePath: string, configPath?: string): Promise<string> {
         logger.debug(`SopsRunner: Encrypting content for ${filePath}`);
 
-        const args = ['--encrypt', '--filename-override', filePath];
-        if (configPath) {
-            args.unshift('--config', configPath);
+        // Per-invocation directory with restrictive permissions so other
+        // local users cannot read the plaintext while SOPS is reading it.
+        const tempDir = await fs.promises.mkdtemp(
+            path.join(os.tmpdir(), 'sopsie-enc-')
+        );
+        if (process.platform !== 'win32') {
+            await fs.promises.chmod(tempDir, 0o700);
         }
+        const tempPath = path.join(tempDir, 'payload');
+        await fs.promises.writeFile(tempPath, content, {
+            encoding: 'utf8',
+            mode: 0o600
+        });
 
-        const sopsPath = this.settingsService.getSopsPath();
-        const timeout = this.settingsService.getTimeout();
-        const cwd = this.getWorkingDirectory(filePath);
-
-        return this.runCommand(sopsPath, args, cwd, content, timeout);
+        try {
+            const args = ['--encrypt', '--filename-override', filePath, tempPath];
+            if (configPath) {
+                args.unshift('--config', configPath);
+            }
+            const sopsPath = this.settingsService.getSopsPath();
+            const timeout = this.settingsService.getTimeout();
+            const cwd = this.getWorkingDirectory(filePath);
+            return await this.runCommand(sopsPath, args, cwd, '', timeout);
+        } finally {
+            try {
+                await fs.promises.unlink(tempPath);
+                await fs.promises.rmdir(tempDir);
+            } catch (err) {
+                logger.warn(
+                    `Failed to clean up encrypt temp file ${tempPath}: ${getErrorMessage(err)}`
+                );
+            }
+        }
     }
 
     /**
