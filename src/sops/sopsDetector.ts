@@ -79,13 +79,16 @@ export class SopsDetector {
     }
 
     private static hasIniSopsMetadata(content: string): boolean {
-        // Restrict the metadata match to lines after the [sops] header.
-        const headerIdx = content.search(/^\[sops\]\s*$/m);
-        if (headerIdx === -1) {
+        const headerMatch = content.match(/^\[sops\]\s*$/m);
+        if (!headerMatch || headerMatch.index === undefined) {
             return false;
         }
-        const section = content.slice(headerIdx);
-        return /^mac\s*=/m.test(section) && /^version\s*=/m.test(section);
+        const sectionStart = headerMatch.index + headerMatch[0].length;
+        const nextSectionMatch = content.slice(sectionStart).search(/^\[/m);
+        const sectionBody = nextSectionMatch === -1
+            ? content.slice(sectionStart)
+            : content.slice(sectionStart, sectionStart + nextSectionMatch);
+        return /^mac\s*=/m.test(sectionBody) && /^version\s*=/m.test(sectionBody);
     }
 
     /**
