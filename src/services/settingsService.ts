@@ -39,10 +39,16 @@ export class SettingsService implements vscode.Disposable {
     }
 
     /**
-     * Get the decryption timeout in milliseconds
+     * Get the decryption timeout in milliseconds.
+     * Clamped to [1000, 600000] so a zero or negative user value does not
+     * cause every SOPS operation to time out immediately.
      */
     getTimeout(): number {
-        return this.getConfig().get<number>('decryptionTimeout', 30000);
+        const raw = this.getConfig().get<number>('decryptionTimeout', 30000);
+        if (!Number.isFinite(raw)) {
+            return 30000;
+        }
+        return Math.max(1000, Math.min(600000, raw));
     }
 
     /**
