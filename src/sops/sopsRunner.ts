@@ -20,47 +20,36 @@ export class SopsRunner {
 
     /**
      * Decrypt a file and return the decrypted content.
-     * Automatically detects file type from extension.
+     * Format is resolved from the basename so dotfile-only and suffixed
+     * dotenv names (`.env`, `.env.local`, `.env.production`) are handled
+     * correctly; SOPS's own extension heuristic misses both forms.
      */
     async decrypt(filePath: string): Promise<string> {
-        const ext = path.extname(filePath).slice(1);
-        const fileType = this.getInputType(ext);
+        const fileType = SopsRunner.resolveFileType(filePath);
         logger.debug(`SopsRunner: Decrypting ${filePath} (type=${fileType})`);
-
-        // For known structured formats, let SOPS handle it naturally
-        // For binary/unknown formats, explicitly specify the type
-        if (fileType === 'binary') {
-            return this.runSops([
-                '--decrypt',
-                '--input-type', 'binary',
-                '--output-type', 'binary',
-                filePath
-            ], filePath);
-        }
-        return this.runSops(['--decrypt', filePath], filePath);
+        return this.runSops([
+            '--decrypt',
+            '--input-type', fileType,
+            '--output-type', fileType,
+            filePath
+        ], filePath);
     }
 
     /**
      * Encrypt a file and return the encrypted content.
-     * Automatically detects file type from extension.
+     * Format is resolved from the basename so dotfile-only and suffixed
+     * dotenv names are handled correctly (see {@link decrypt}).
      * @param configPath Optional path to .sops.yaml/.sops.yml config file
      */
     async encrypt(filePath: string, configPath?: string): Promise<string> {
-        const ext = path.extname(filePath).slice(1);
-        const fileType = this.getInputType(ext);
+        const fileType = SopsRunner.resolveFileType(filePath);
         logger.debug(`SopsRunner: Encrypting ${filePath} (type=${fileType})`);
-
-        // For known structured formats, let SOPS handle it naturally
-        // For binary/unknown formats, explicitly specify the type
-        if (fileType === 'binary') {
-            return this.runSops([
-                '--encrypt',
-                '--input-type', 'binary',
-                '--output-type', 'binary',
-                filePath
-            ], filePath, configPath);
-        }
-        return this.runSops(['--encrypt', filePath], filePath, configPath);
+        return this.runSops([
+            '--encrypt',
+            '--input-type', fileType,
+            '--output-type', fileType,
+            filePath
+        ], filePath, configPath);
     }
 
     /**
@@ -94,7 +83,14 @@ export class SopsRunner {
         });
 
         try {
-            const args = ['--encrypt', '--filename-override', filePath, tempPath];
+            const fileType = SopsRunner.resolveFileType(filePath);
+            const args = [
+                '--encrypt',
+                '--input-type', fileType,
+                '--output-type', fileType,
+                '--filename-override', filePath,
+                tempPath
+            ];
             if (configPath) {
                 args.unshift('--config', configPath);
             }
@@ -160,19 +156,36 @@ export class SopsRunner {
         }
     }
 
-    private getInputType(ext: string): string {
-        switch (ext.toLowerCase()) {
-            case 'json':
+    /**
+     * Resolve the SOPS store type for a file path based on its basename.
+     *
+     * Handles two corner cases `path.extname` alone gets wrong:
+     *   - Dotfile-only names like `.env` (extname returns '' → binary).
+     *   - Suffixed dotenv names like `.env.local`, `.env.production` that
+     *     SOPS itself also fails to recognise (its auto-detect falls back
+     *     to JSON, which chokes on `#` comments or `KEY=value` lines).
+     *
+     * Exported as a static so tests can exercise it without constructing a
+     * full `SopsRunner` instance.
+     */
+    static resolveFileType(filePath: string): string {
+        const base = path.basename(filePath).toLowerCase();
+
+        // Dotenv family: `.env`, `.env.<anything>`, or `*.env`.
+        if (base === '.env' || base.startsWith('.env.') || base.endsWith('.env')) {
+            return 'dotenv';
+        }
+
+        const ext = path.extname(base);
+        switch (ext) {
+            case '.json':
                 return 'json';
-            case 'env':
-                return 'dotenv';
-            case 'ini':
+            case '.ini':
                 return 'ini';
-            case 'yaml':
-            case 'yml':
+            case '.yaml':
+            case '.yml':
                 return 'yaml';
             default:
-                // Unknown extensions use binary format
                 return 'binary';
         }
     }

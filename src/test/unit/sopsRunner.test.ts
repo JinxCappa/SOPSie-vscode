@@ -92,8 +92,40 @@ suite('sopsRunner.parseError', () => {
             getSopsPath: () => 'sops',
             getTimeout: () => 5000
         } as unknown as SettingsService);
-         
+
         const e = (runner as any).createError(SopsErrorType.CliNotFound, 'missing');
         assert.strictEqual(e.recoverable, false);
     });
+});
+
+suite('sopsRunner.resolveFileType', () => {
+    const cases: Array<[string, string]> = [
+        // Dotenv family — the regression from issue #12 plus its suffixed
+        // siblings. path.extname('.env') returns '' in Node, so a literal
+        // `.env` used to fall through to binary.
+        ['.env', 'dotenv'],
+        ['/tmp/.env', 'dotenv'],
+        ['.env.local', 'dotenv'],
+        ['.env.production', 'dotenv'],
+        ['foo.env', 'dotenv'],
+        ['/path/to/secrets.env', 'dotenv'],
+        ['FOO.ENV', 'dotenv'],
+
+        // Structured formats.
+        ['config.json', 'json'],
+        ['config.yaml', 'yaml'],
+        ['config.yml', 'yaml'],
+        ['config.ini', 'ini'],
+
+        // Fallback — unknown extensions, no extension, direnv scripts.
+        ['Dockerfile', 'binary'],
+        ['secret.bin', 'binary'],
+        ['.envrc', 'binary']
+    ];
+
+    for (const [filePath, expected] of cases) {
+        test(`${filePath} → ${expected}`, () => {
+            assert.strictEqual(SopsRunner.resolveFileType(filePath), expected);
+        });
+    }
 });
