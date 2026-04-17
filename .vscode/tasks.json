@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "watch",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$tsc-watch",
+        "$esbuild-watch"
+      ],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "never",
+        "group": "watchers"
+      },
+      "label": "npm: watch"
+    },
+    {
+      "type": "npm",
+      "script": "pretest",
+      "problemMatcher": "$tsc",
+      "label": "npm: pretest"
+    }
+  ]
+}
