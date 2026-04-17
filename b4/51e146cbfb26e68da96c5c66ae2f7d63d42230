@@ -1,0 +1,25 @@
+.vscode/launch.json
+  347f93d513afd7a0 1-31
+.vscode/tasks.json
+  347f93d513afd7a0 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "b451e146cbfb26e68da96c5c66ae2f7d63d42230",
+  "prompts": {
+    "347f93d513afd7a0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "418ec2a6-4f4b-4489-a859-d5a2998eff54",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 505,
+      "total_deletions": 0,
+      "accepted_lines": 60,
+      "overriden_lines": 0
+    }
+  }
+}
