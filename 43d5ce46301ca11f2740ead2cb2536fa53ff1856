@@ -1,0 +1,93 @@
+src/test/unit/configParser.test.ts
+  ef2c36034b2f2321 1-107
+src/test/fixtures/configs/missing-rules.sops.yaml
+  ef2c36034b2f2321 1-2
+.vscode/tasks.json
+  ef2c36034b2f2321 1-29
+src/test/fixtures/encrypted/secret.yaml
+  ef2c36034b2f2321 1-19
+src/test/fixtures/plaintext/plain.env
+  ef2c36034b2f2321 1-4
+src/sops/sopsDetector.ts
+  ef2c36034b2f2321 2,35-37,45-63,65-79,81-91
+.vscode-test.mjs
+  ef2c36034b2f2321 1-9
+src/test/fixtures/configs/invalid-yaml.sops.yaml
+  ef2c36034b2f2321 1-3
+justfile
+  ef2c36034b2f2321 42-57
+src/services/decryptedViewService.ts
+  ef2c36034b2f2321 138,150,156-161
+src/sops/sopsRunner.ts
+  ef2c36034b2f2321 2-3,23-25,28,30-35,40-41,45,47-52,56-65,71-77,79-83,85-110,159-181,183,185-186,330,334
+src/test/fixtures/configs/basic.sops.yaml
+  ef2c36034b2f2321 1-6
+src/handlers/autoBehaviorHandler.ts
+  ef2c36034b2f2321 123-126,145-166
+src/test/fixtures/plaintext/plain.json
+  ef2c36034b2f2321 1-5
+package.json
+  ef2c36034b2f2321 5,7,309-311
+src/test/unit/sopsDetector.test.ts
+  ef2c36034b2f2321 1-109
+src/test/unit/sopsRunner.test.ts
+  ef2c36034b2f2321 1-131
+src/watchers/documentWatcher.ts
+  ef2c36034b2f2321 25-31,56,106,109,111-124,134-138
+src/test/unit/decryptedContentProvider.test.ts
+  ef2c36034b2f2321 1-148
+.vscode/launch.json
+  ef2c36034b2f2321 1-31
+README.md
+  ef2c36034b2f2321 224-242
+.github/workflows/release.yaml
+  ef2c36034b2f2321 1-69
+src/test/fixtures/encrypted/secret.ini
+  ef2c36034b2f2321 1-8
+src/test/fixtures/encrypted/secret.json
+  ef2c36034b2f2321 1-20
+.vscodeignore
+  ef2c36034b2f2321 1-16
+src/extension.ts
+  ef2c36034b2f2321 183,192-193
+src/test/fixtures/plaintext/plain.yaml
+  ef2c36034b2f2321 1-4
+CHANGELOG.md
+  ef2c36034b2f2321 5,8,10,12-15,19,23-31,33,35,37,39
+src/test/fixtures/encrypted/secret.env
+  ef2c36034b2f2321 1-8
+src/test/unit/fileStateTracker.test.ts
+  ef2c36034b2f2321 1-63
+src/test/unit/tempFileHandler.test.ts
+  ef2c36034b2f2321 1-241
+src/handlers/tempFileHandler.ts
+  ef2c36034b2f2321 50-59,63-66,135-137,139-163,174-177,179-188
+src/test/unit/rulesMatcher.test.ts
+  ef2c36034b2f2321 1-104
+src/test/fixtures/configs/bad-regex.sops.yaml
+  ef2c36034b2f2321 1-3
+tsconfig.test.json
+  ef2c36034b2f2321 1-8
+src/test/unit/settingsService.test.ts
+  ef2c36034b2f2321 1-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "43d5ce46301ca11f2740ead2cb2536fa53ff1856",
+  "prompts": {
+    "ef2c36034b2f2321": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "42b1e611-deb3-46b2-a630-ce2a64b562c3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 1570,
+      "total_deletions": 141,
+      "accepted_lines": 1570,
+      "overriden_lines": 0
+    }
+  }
+}
