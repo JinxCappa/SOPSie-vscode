@@ -4,7 +4,7 @@
   "description": "Seamlessly edit SOPS-encrypted files in VS Code",
   "version": "0.2.0",
   "publisher": "JinxCappa",
-  "repository": "https://github.com/JinxCappa/sopsie",
+  "repository": "https://github.com/jinxcappa/sopsie-vscode",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.80.0"
