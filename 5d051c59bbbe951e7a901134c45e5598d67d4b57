@@ -1,0 +1,38 @@
+src/sops/sopsRunner.ts
+  b948ce63485c7477 23-25,28,30-35,40-41,45,47-52,86-93,159-181,183,185-186
+src/test/unit/sopsRunner.test.ts
+  b948ce63485c7477 95,100-130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "5d051c59bbbe951e7a901134c45e5598d67d4b57",
+  "prompts": {
+    "01a93087705bfcee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "47aa9273-8532-4f96-866b-318ffb86a926",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 493,
+      "overriden_lines": 0
+    },
+    "b948ce63485c7477": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7891e0c1-12ac-46bf-9e04-db57967bc12b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 86,
+      "total_deletions": 41,
+      "accepted_lines": 86,
+      "overriden_lines": 0
+    }
+  }
+}
