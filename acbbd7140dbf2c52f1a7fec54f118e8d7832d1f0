@@ -1,0 +1,28 @@
+src/utils/errorUtils.ts
+  9de8ee30d1185990 5-23,32-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "acbbd7140dbf2c52f1a7fec54f118e8d7832d1f0",
+  "prompts": {
+    "9de8ee30d1185990": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "108c72c2-610b-4ce5-a3bb-ee503290185a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 0,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_772d05b0e130f8": {
+      "author": "JinxCappa"
+    }
+  }
+}
