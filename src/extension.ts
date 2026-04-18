@@ -165,9 +165,15 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    // Watch for file changes to invalidate decrypted content cache
-    // Only watch common SOPS file types to avoid watching entire workspace
-    const fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.{yaml,yml,json,env,ini}');
+    // Watch for file changes to invalidate decrypted content cache.
+    // The brace list must spell out dotfile dotenv forms (`.env`,
+    // `.env.*`) explicitly: VS Code's glob treats a leading `.` as
+    // part of the filename, so `*.env` matches `foo.env` but not a
+    // bare `.env` — and missing those would leave the preview stuck
+    // on stale content whenever a dotenv-named SOPS file is edited.
+    const fileWatcher = vscode.workspace.createFileSystemWatcher(
+        '**/{.env,.env.*,*.yaml,*.yml,*.json,*.env,*.ini}'
+    );
     fileWatcher.onDidChange((uri) => {
         decryptedContentProvider.refresh(uri.fsPath);
     });

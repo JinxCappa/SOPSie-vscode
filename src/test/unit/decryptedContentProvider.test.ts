@@ -106,22 +106,42 @@ suite('decryptedContentProvider', () => {
         p.dispose();
     });
 
-    test('refresh fires onDidChange only for cached paths', async () => {
+    test('refresh fires onDidChange for any previously served path', async () => {
         const p = new DecryptedContentProvider(new StubRunner() as unknown as SopsRunner);
         let fired = 0;
         p.onDidChange(() => fired++);
 
-        // Refresh with no cache → no event
+        // Refresh with no prior request → no event
         p.refresh('/repo/never-opened.yaml');
         assert.strictEqual(fired, 0);
 
-        // Populate cache then refresh → event fires once
+        // Serve content then refresh → event fires once
         await p.provideTextDocumentContent(previewUriFor('/repo/cached.yaml'));
         p.refresh('/repo/cached.yaml');
         assert.strictEqual(fired, 1);
 
-        // Subsequent refresh of the (now-evicted) entry → no event
+        // Refresh again (cache was cleared by the prior refresh) → still
+        // fires, because the path was served once and the preview tab
+        // may still be open. Regression guard: an earlier implementation
+        // gated this on cache presence, which left preview tabs stuck
+        // on stale error responses (which are never cached).
         p.refresh('/repo/cached.yaml');
+        assert.strictEqual(fired, 2);
+        p.dispose();
+    });
+
+    test('refresh after a failed decrypt still fires onDidChange', async () => {
+        const stub = new StubRunner();
+        stub.decryptResult = new Error('boom');
+        const p = new DecryptedContentProvider(stub as unknown as SopsRunner);
+        let fired = 0;
+        p.onDidChange(() => fired++);
+
+        // First call fails — error is returned as content but not cached.
+        await p.provideTextDocumentContent(previewUriFor('/repo/broken.yaml'));
+        // Without tracking served paths, this refresh would be a no-op
+        // and the preview tab would be permanently stuck on the error.
+        p.refresh('/repo/broken.yaml');
         assert.strictEqual(fired, 1);
         p.dispose();
     });
