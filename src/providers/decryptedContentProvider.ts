@@ -3,7 +3,7 @@ import * as path from 'path';
 import { SopsRunner } from '../sops/sopsRunner';
 import { SOPS_DECRYPTED_SCHEME } from '../types';
 import { logger } from '../services/loggerService';
-import { getErrorMessage } from '../utils/errorUtils';
+import { getErrorMessage, isSopsError } from '../utils/errorUtils';
 
 /**
  * Provides decrypted content for virtual documents.
@@ -53,7 +53,7 @@ export class DecryptedContentProvider implements vscode.TextDocumentContentProvi
         } catch (error) {
             logger.error(`DecryptedContentProvider: Failed to decrypt ${originalPath}: ${getErrorMessage(error)}`);
             // Return error message as content so user sees what went wrong
-            return `# Failed to decrypt file\n# Error: ${getErrorMessage(error)}\n#\n# Original file: ${originalPath}`;
+            return this.formatErrorContent(error, originalPath);
         }
     }
 
@@ -95,6 +95,34 @@ export class DecryptedContentProvider implements vscode.TextDocumentContentProvi
         ].join('\n');
 
         return header + content;
+    }
+
+    /**
+     * Render a decryption failure as a commented block so the preview
+     * surfaces the message, suggested action, and raw SOPS stderr.
+     */
+    private formatErrorContent(error: unknown, originalPath: string): string {
+        const lines = ['# Failed to decrypt file'];
+        if (isSopsError(error)) {
+            lines.push(`# Type: ${error.type}`);
+            lines.push(`# Error: ${error.message}`);
+            if (error.suggestedAction) {
+                lines.push('#');
+                lines.push(`# Suggested action: ${error.suggestedAction}`);
+            }
+            if (error.details) {
+                lines.push('#');
+                lines.push('# Details:');
+                for (const detailLine of error.details.replace(/\s+$/, '').split('\n')) {
+                    lines.push(`#   ${detailLine}`);
+                }
+            }
+        } else {
+            lines.push(`# Error: ${getErrorMessage(error)}`);
+        }
+        lines.push('#');
+        lines.push(`# Original file: ${originalPath}`);
+        return lines.join('\n');
     }
 
     /**
