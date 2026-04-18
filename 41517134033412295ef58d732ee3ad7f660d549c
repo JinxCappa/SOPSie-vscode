@@ -1,0 +1,32 @@
+src/test/unit/decryptedContentProvider.test.ts
+  9de8ee30d1185990 109,114,118,123-127,129-144
+src/extension.ts
+  9de8ee30d1185990 168-176
+src/providers/decryptedContentProvider.ts
+  9de8ee30d1185990 18-23,38,137-140,143-145,202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "41517134033412295ef58d732ee3ad7f660d549c",
+  "prompts": {
+    "9de8ee30d1185990": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "108c72c2-610b-4ce5-a3bb-ee503290185a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "JinxCappa",
+      "messages": [],
+      "total_additions": 48,
+      "total_deletions": 11,
+      "accepted_lines": 48,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_772d05b0e130f8": {
+      "author": "JinxCappa"
+    }
+  }
+}
