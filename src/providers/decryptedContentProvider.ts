@@ -15,6 +15,12 @@ export class DecryptedContentProvider implements vscode.TextDocumentContentProvi
 
     private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
     private cache = new Map<string, string>();
+    // Paths we've served content for, whether successfully or as an error.
+    // Decouples "has this preview been opened?" from "is the decrypted
+    // content cached?" — errors aren't cached, so without this set a
+    // failed first decrypt would leave the preview permanently stale
+    // because refresh()'s onDidChange fire was gated on cache presence.
+    private servedPaths = new Set<string>();
 
     /** Event fired when document content changes (triggers VS Code to re-fetch content) */
     readonly onDidChange = this._onDidChange.event;
@@ -29,6 +35,7 @@ export class DecryptedContentProvider implements vscode.TextDocumentContentProvi
         // URI format: sops-decrypted:/filename (SOPS Preview)?/original/path
         // The query contains the original file path
         const originalPath = uri.query || uri.path;
+        this.servedPaths.add(originalPath);
         logger.debug(`DecryptedContentProvider: Providing content for ${originalPath}`);
 
         // Check cache first
@@ -127,12 +134,15 @@ export class DecryptedContentProvider implements vscode.TextDocumentContentProvi
 
     /**
      * Refresh a specific document by clearing cache and firing change event.
-     * Only fires change event if the path was actually cached (has an open preview).
+     * Fires the change event whenever a preview has ever been served for
+     * this path — not just when the cache currently holds it — so that
+     * error responses (which are deliberately not cached) do not leave
+     * the preview permanently stuck on a stale failure.
      */
     refresh(originalPath: string): void {
-        const wasCached = this.cache.delete(originalPath);
-        if (wasCached) {
-            logger.debug(`DecryptedContentProvider: Refreshing cached content for ${originalPath}`);
+        this.cache.delete(originalPath);
+        if (this.servedPaths.has(originalPath)) {
+            logger.debug(`DecryptedContentProvider: Refreshing served content for ${originalPath}`);
             const filename = path.basename(originalPath);
             const uri = vscode.Uri.from({
                 scheme: SOPS_DECRYPTED_SCHEME,
@@ -189,5 +199,6 @@ export class DecryptedContentProvider implements vscode.TextDocumentContentProvi
     dispose(): void {
         this._onDidChange.dispose();
         this.cache.clear();
+        this.servedPaths.clear();
     }
 }
