@@ -2,7 +2,7 @@
   "name": "sopsie",
   "displayName": "SOPSie",
   "description": "Seamlessly edit SOPS-encrypted files in VS Code",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "JinxCappa",
   "repository": "https://github.com/jinxcappa/sopsie-vscode",
   "icon": "images/icon.png",
