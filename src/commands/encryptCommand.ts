@@ -54,7 +54,7 @@ export function registerEncryptCommand(
                     const configPath = configManager.getConfigPath(uri);
                     logger.debug(`Encrypt command: Config path for ${uri.fsPath}: ${configPath ?? 'not found'}`);
 
-                    const encrypted = await sopsRunner.encryptContent(
+                    const { encrypted } = await sopsRunner.encryptContentIfChanged(
                         content,
                         uri.fsPath,
                         configPath ?? undefined

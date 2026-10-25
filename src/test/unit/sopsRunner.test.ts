@@ -1,4 +1,7 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { SopsRunner } from '../../sops/sopsRunner';
 import { SopsError, SopsErrorType } from '../../types';
 import { SettingsService } from '../../services/settingsService';
@@ -95,6 +98,89 @@ suite('sopsRunner.parseError', () => {
 
         const e = (runner as any).createError(SopsErrorType.CliNotFound, 'missing');
         assert.strictEqual(e.recoverable, false);
+    });
+});
+
+suite('sopsRunner.encryptContentIfChanged', () => {
+    let dir: string;
+    let filePath: string;
+    let runner: SopsRunner;
+    let encryptCalls: number;
+
+    // decrypt/encryptContent spawn the SOPS CLI; stub them on the instance.
+    function stub(decrypt: () => Promise<string>): void {
+        (runner as any).decrypt = decrypt;
+        (runner as any).encryptContent = async () => {
+            encryptCalls++;
+            return 'NEW-CIPHERTEXT';
+        };
+    }
+
+    setup(async () => {
+        dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'sopsie-runner-'));
+        filePath = path.join(dir, 'secret.yaml');
+        runner = new SopsRunner({
+            getSopsPath: () => 'sops',
+            getTimeout: () => 5000
+        } as unknown as SettingsService);
+        encryptCalls = 0;
+    });
+
+    teardown(async () => {
+        await fs.promises.rm(dir, { recursive: true, force: true });
+    });
+
+    test('keeps the existing ciphertext when plaintext is unchanged', async () => {
+        await fs.promises.writeFile(filePath, 'OLD-CIPHERTEXT', 'utf8');
+        stub(async () => 'key: value\n');
+
+        const result = await runner.encryptContentIfChanged('key: value\n', filePath);
+
+        assert.deepStrictEqual(result, { encrypted: 'OLD-CIPHERTEXT', changed: false });
+        assert.strictEqual(encryptCalls, 0);
+    });
+
+    test('re-encrypts when plaintext differs', async () => {
+        await fs.promises.writeFile(filePath, 'OLD-CIPHERTEXT', 'utf8');
+        stub(async () => 'key: value\n');
+
+        const result = await runner.encryptContentIfChanged('key: other\n', filePath);
+
+        assert.deepStrictEqual(result, { encrypted: 'NEW-CIPHERTEXT', changed: true });
+        assert.strictEqual(encryptCalls, 1);
+    });
+
+    test('encrypts when the file on disk cannot be decrypted', async () => {
+        await fs.promises.writeFile(filePath, 'key: value\n', 'utf8');
+        stub(async () => {
+            throw new Error('sops metadata not found');
+        });
+
+        const result = await runner.encryptContentIfChanged('key: value\n', filePath);
+
+        assert.deepStrictEqual(result, { encrypted: 'NEW-CIPHERTEXT', changed: true });
+    });
+
+    test('encrypts when the file does not exist', async () => {
+        stub(async () => {
+            throw new Error('decrypt must not be needed');
+        });
+
+        const result = await runner.encryptContentIfChanged('key: value\n', filePath);
+
+        assert.deepStrictEqual(result, { encrypted: 'NEW-CIPHERTEXT', changed: true });
+    });
+
+    test('encrypts when the file changes while it is being decrypted', async () => {
+        await fs.promises.writeFile(filePath, 'OLD-CIPHERTEXT', 'utf8');
+        stub(async () => {
+            await fs.promises.writeFile(filePath, 'NEWER-CIPHERTEXT', 'utf8');
+            return 'key: value\n';
+        });
+
+        const result = await runner.encryptContentIfChanged('key: value\n', filePath);
+
+        assert.deepStrictEqual(result, { encrypted: 'NEW-CIPHERTEXT', changed: true });
     });
 });
 

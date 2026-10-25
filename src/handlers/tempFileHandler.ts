@@ -87,7 +87,7 @@ export class TempFileHandler implements vscode.Disposable {
             const content = doc.getText();
 
             // Show progress notification
-            await vscode.window.withProgress(
+            const changed = await vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
                     title: 'Encrypting and saving to original file...',
@@ -99,21 +99,31 @@ export class TempFileHandler implements vscode.Disposable {
                     const configPath = this.configManager.getConfigPath(originalUri);
 
                     // Encrypt content using SOPS
-                    const encrypted = await this.sopsRunner.encryptContent(
+                    const result = await this.sopsRunner.encryptContentIfChanged(
                         content,
                         originalPath,
                         configPath ?? undefined
                     );
 
                     // Write encrypted content to original file
-                    await fs.promises.writeFile(originalPath, encrypted, 'utf8');
+                    if (result.changed) {
+                        await fs.promises.writeFile(originalPath, result.encrypted, 'utf8');
+                    }
+                    return result.changed;
                 }
             );
 
-            vscode.window.showInformationMessage(
-                `Encrypted and saved to ${path.basename(originalPath)}`
-            );
-            logger.debug(`Encrypted temp file ${tempPath} -> ${originalPath}`);
+            if (changed) {
+                vscode.window.showInformationMessage(
+                    `Encrypted and saved to ${path.basename(originalPath)}`
+                );
+                logger.debug(`Encrypted temp file ${tempPath} -> ${originalPath}`);
+            } else {
+                vscode.window.showInformationMessage(
+                    `No changes, ${path.basename(originalPath)} left untouched`
+                );
+                logger.debug(`Temp file ${tempPath} unchanged, ${originalPath} left untouched`);
+            }
         } catch (error) {
             logger.error(`Failed to encrypt: ${getErrorMessage(error)}`);
             vscode.window.showErrorMessage(

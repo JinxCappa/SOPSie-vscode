@@ -129,7 +129,7 @@ export class AutoBehaviorHandler {
             // Find the config file to use (supports both .sops.yaml and .sops.yml)
             const configPath = this.configManager.getConfigPath(doc.uri);
 
-            const encrypted = await this.sopsRunner.encryptContent(
+            const { encrypted } = await this.sopsRunner.encryptContentIfChanged(
                 content,
                 doc.uri.fsPath,
                 configPath ?? undefined
