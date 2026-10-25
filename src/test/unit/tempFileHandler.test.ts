@@ -7,17 +7,22 @@ import { SopsRunner } from '../../sops/sopsRunner';
 import { ConfigManager } from '../../config/configManager';
 
 /**
- * Stub SopsRunner — only encryptContent is exercised by the save path.
+ * Stub SopsRunner — only encryptContentIfChanged is exercised by the save path.
  */
 class StubRunner {
     encryptCalls: Array<{ content: string; filePath: string; configPath?: string }> = [];
     encryptResult: string | Error = 'ENCRYPTED';
-    async encryptContent(content: string, filePath: string, configPath?: string): Promise<string> {
+    changed = true;
+    async encryptContentIfChanged(
+        content: string,
+        filePath: string,
+        configPath?: string
+    ): Promise<{ encrypted: string; changed: boolean }> {
         this.encryptCalls.push({ content, filePath, configPath });
         if (this.encryptResult instanceof Error) {
             throw this.encryptResult;
         }
-        return this.encryptResult;
+        return { encrypted: this.encryptResult, changed: this.changed };
     }
 }
 
@@ -160,6 +165,37 @@ suite('tempFileHandler', () => {
 
         const onDisk = await fs.promises.readFile(originalPath, 'utf8');
         assert.strictEqual(onDisk, 'ENCRYPTED');
+
+        await fs.promises.rm(originalDir, { recursive: true, force: true });
+    });
+
+    test('save flow leaves the original untouched when content is unchanged', async () => {
+        const { handler, runner } = makeHandler();
+        toDispose.push(handler);
+
+        runner.changed = false;
+
+        const originalDir = await fs.promises.mkdtemp(
+            path.join(require('os').tmpdir(), 'sopsie-orig-')
+        );
+        const originalPath = path.join(originalDir, 'secret.yaml');
+        await fs.promises.writeFile(originalPath, 'PRIOR-ENCRYPTED', 'utf8');
+        const mtimeBefore = (await fs.promises.stat(originalPath)).mtimeMs;
+
+        const tempUri = await handler.createTempFile(
+            vscode.Uri.file(originalPath),
+            'plaintext'
+        );
+        const doc = {
+            uri: tempUri,
+            getText: () => 'plaintext'
+        } as unknown as vscode.TextDocument;
+
+        await (handler as any).onDocumentSaved(doc);
+
+        assert.strictEqual(runner.encryptCalls.length, 1);
+        assert.strictEqual(await fs.promises.readFile(originalPath, 'utf8'), 'PRIOR-ENCRYPTED');
+        assert.strictEqual((await fs.promises.stat(originalPath)).mtimeMs, mtimeBefore);
 
         await fs.promises.rm(originalDir, { recursive: true, force: true });
     });

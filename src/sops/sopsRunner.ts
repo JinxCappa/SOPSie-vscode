@@ -111,6 +111,54 @@ export class SopsRunner {
     }
 
     /**
+     * Encrypt in-memory content for a file, keeping the file's current
+     * ciphertext when it already decrypts to exactly this content.
+     *
+     * SOPS draws a fresh data key and a fresh IV per value on every encrypt,
+     * so re-encrypting unchanged plaintext rewrites every line of the file
+     * and shows up as a full diff in version control. `sops edit` avoids this
+     * by comparing before it writes; this does the same for the editor flows.
+     *
+     * @param configPath Optional path to .sops.yaml/.sops.yml config file
+     * @returns The ciphertext to write, and whether it differs from the file
+     */
+    async encryptContentIfChanged(
+        content: string,
+        filePath: string,
+        configPath?: string
+    ): Promise<{ encrypted: string; changed: boolean }> {
+        const before = await SopsRunner.readFileOrUndefined(filePath);
+        if (before) {
+            try {
+                const current = await this.decrypt(filePath);
+                // Re-read so a write that landed during decrypt is not
+                // answered with ciphertext of a different plaintext.
+                const after = await SopsRunner.readFileOrUndefined(filePath);
+                if (current === content && after === before) {
+                    logger.debug(`SopsRunner: ${filePath} unchanged, keeping existing ciphertext`);
+                    return { encrypted: before, changed: false };
+                }
+            } catch (err) {
+                // Not SOPS-encrypted yet (or not decryptable): encrypt as usual.
+                logger.debug(
+                    `SopsRunner: Could not decrypt ${filePath} for comparison: ${getErrorMessage(err)}`
+                );
+            }
+        }
+
+        const encrypted = await this.encryptContent(content, filePath, configPath);
+        return { encrypted, changed: true };
+    }
+
+    private static async readFileOrUndefined(filePath: string): Promise<string | undefined> {
+        try {
+            return await fs.promises.readFile(filePath, 'utf8');
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
      * Update keys in an encrypted file based on .sops.yaml.
      * Re-encrypts the file with the keys defined in the matching creation rule.
      */
